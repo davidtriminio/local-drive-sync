@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
+import { IconPickerComponent } from '../shared/icon-picker.component';
 import {
   DEFAULT_SUBFOLDERS,
   type Client,
@@ -12,7 +13,7 @@ import {
 @Component({
   selector: 'app-project-creator',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, IconPickerComponent],
   template: `
     <section class="mx-auto max-w-3xl p-8">
       <header class="mb-8 flex items-center gap-3">
@@ -38,10 +39,10 @@ import {
           <div class="flex flex-wrap gap-2">
             @for (c of clients(); track c.name) {
               <button
-                (click)="selectClient(c.name)"
+                (click)="selectClient(c)"
                 [class]="badgeClass(c.name)"
               >
-                <app-icon name="user" [size]="14" />
+                <app-icon [name]="c.icon || 'user'" [size]="14" />
                 <span class="capitalize">{{ c.name.replaceAll('_', ' ') }}</span>
                 <span class="rounded-full bg-black/20 px-1.5 text-[10px] leading-4">
                   {{ c.projects.length }}
@@ -78,17 +79,36 @@ import {
             <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
               <app-icon name="user" [size]="16" /> Cliente
             </label>
-            <input
-              [(ngModel)]="client"
-              list="clients-list"
-              class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
-              placeholder="cliente"
-            />
+            <div class="flex gap-2">
+              <button
+                type="button"
+                (click)="showIconPicker.set(!showIconPicker())"
+                title="Icono del cliente"
+                class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white/5 text-emerald-300 transition-colors hover:bg-white/10"
+              >
+                <app-icon [name]="clientIcon" [size]="18" />
+              </button>
+              <input
+                [(ngModel)]="client"
+                (ngModelChange)="onClientTyped()"
+                list="clients-list"
+                class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
+                placeholder="cliente"
+              />
+            </div>
             <datalist id="clients-list">
               @for (c of clients(); track c.name) {
                 <option [value]="c.name"></option>
               }
             </datalist>
+            @if (showIconPicker()) {
+              <div class="mt-2 rounded-xl border border-white/10 bg-slate-950/50 p-2.5">
+                <app-icon-picker
+                  [value]="clientIcon"
+                  (valueChange)="chooseClientIcon($event)"
+                />
+              </div>
+            }
           </div>
           <div>
             <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -286,9 +306,11 @@ export class ProjectCreatorComponent {
   protected readonly success = signal('');
   protected readonly duplicateFolder = signal('');
   protected readonly busy = signal(false);
+  protected readonly showIconPicker = signal(false);
 
   protected basePath = '';
   protected client = '';
+  protected clientIcon = 'store';
   protected project = '';
   protected psd = true;
   protected ai = false;
@@ -326,11 +348,37 @@ export class ProjectCreatorComponent {
     );
     if (prefs.lastClient) {
       this.client = prefs.lastClient;
+      this.syncClientIcon();
     }
   }
 
-  protected selectClient(name: string): void {
-    this.client = name;
+  protected selectClient(c: Client): void {
+    this.client = c.name;
+    this.clientIcon = c.icon || 'store';
+    this.showIconPicker.set(false);
+  }
+
+  /** Al teclear, sincroniza el icono si el nombre coincide con un cliente. */
+  protected onClientTyped(): void {
+    this.syncClientIcon();
+  }
+
+  private syncClientIcon(): void {
+    const key = this.client.trim().toLowerCase().replace(/\s+/g, '_');
+    const found = this.clients().find((c) => c.name === key);
+    if (found) {
+      this.clientIcon = found.icon || 'store';
+    }
+  }
+
+  /** Elige un icono; si el cliente ya existe, lo persiste al momento. */
+  protected async chooseClientIcon(icon: string): Promise<void> {
+    this.clientIcon = icon;
+    this.showIconPicker.set(false);
+    const key = this.client.trim().toLowerCase().replace(/\s+/g, '_');
+    if (key && this.clients().some((c) => c.name === key)) {
+      this.clients.set(await this.ipc.setClientIcon(key, icon));
+    }
   }
 
   protected badgeClass(name: string): string {
@@ -404,6 +452,7 @@ export class ProjectCreatorComponent {
         fileTypes,
         platforms: [...this.selectedPlatforms()],
         subfolders: [...this.selectedSubfolders()],
+        clientIcon: this.clientIcon,
         confirmDuplicate,
       });
 
