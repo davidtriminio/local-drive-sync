@@ -41,6 +41,8 @@ export interface Mapping {
   name: string;
   /** Nombre de icono (de la librería) mostrado en la lista de mapeos. */
   icon: string;
+  /** Color de acento (hex) del badge/icono. */
+  color: string;
   /** Ruta local, puede contener el token {mes}. Ej: D:\Exports\{mes}\Cliente 1 */
   localPattern: string;
   /** Ruta Drive, puede contener el token {mes}. Ej: G:\...\Cliente 1\artes\{mes} */
@@ -57,6 +59,7 @@ export interface MappingDraft {
   id?: string;
   name: string;
   icon?: string;
+  color?: string;
   localPattern: string;
   drivePattern: string;
   monthFormat: MonthFormat;
