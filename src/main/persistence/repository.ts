@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
   AppSettings,
+  Client,
   Mapping,
   RunDetail,
   RunSummary,
@@ -14,6 +15,8 @@ interface Database {
   settings: AppSettings;
   runs: RunDetail[];
   trash: TrashEntry[];
+  /** Clientes del creador de proyectos, indexados por nombre saneado. */
+  clients: Client[];
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
   index: Record<string, Record<string, IndexEntry>>;
 }
@@ -30,6 +33,7 @@ function emptyDb(): Database {
     settings: { ...DEFAULT_SETTINGS },
     runs: [],
     trash: [],
+    clients: [],
     index: {},
   };
 }
@@ -138,6 +142,64 @@ export class Repository {
 
   getRun(id: string): RunDetail | null {
     return this.db.runs.find((r) => r.id === id) ?? null;
+  }
+
+  // --- Clientes (creador de proyectos) ---
+  listClients(): Client[] {
+    return [...this.db.clients].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  getClient(name: string): Client | undefined {
+    return this.db.clients.find((c) => c.name === name);
+  }
+
+  /** Registra un proyecto para un cliente, creando el cliente si no existe. */
+  recordProject(clientName: string, projectName: string, folder: string): void {
+    let client = this.db.clients.find((c) => c.name === clientName);
+    if (!client) {
+      client = { name: clientName, projects: [] };
+      this.db.clients.push(client);
+    }
+    let project = client.projects.find((p) => p.name === projectName);
+    if (!project) {
+      project = { name: projectName, folders: [] };
+      client.projects.push(project);
+    }
+    project.folders.push(folder);
+    this.persist();
+  }
+
+  /**
+   * Fusiona clientes (p. ej. importados) con los existentes, por nombre.
+   * No duplica proyectos ni carpetas ya registradas.
+   */
+  mergeClients(incoming: Client[]): void {
+    for (const inc of incoming) {
+      const existing = this.db.clients.find((c) => c.name === inc.name);
+      if (!existing) {
+        this.db.clients.push({
+          name: inc.name,
+          projects: inc.projects.map((p) => ({
+            name: p.name,
+            folders: [...p.folders],
+          })),
+        });
+        continue;
+      }
+      for (const p of inc.projects) {
+        const ep = existing.projects.find((x) => x.name === p.name);
+        if (!ep) {
+          existing.projects.push({ name: p.name, folders: [...p.folders] });
+        } else {
+          for (const f of p.folders) {
+            if (!ep.folders.includes(f)) {
+              ep.folders.push(f);
+            }
+          }
+        }
+      }
+    }
+    this.persist();
   }
 
   // --- Papelera ---
