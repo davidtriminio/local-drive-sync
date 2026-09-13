@@ -34,8 +34,26 @@ export class SyncService {
     private readonly trashRoot: string,
   ) {}
 
-  /** Resuelve {mes} en una ruta; si el nombre exacto no existe, busca un
-   *  hermano en el directorio padre cuyo nombre normalice al mismo mes. */
+  /** Busca en `parent` una subcarpeta cuyo nombre normalice a `monthKey`. */
+  private findMonthSibling(parent: string, monthKey: string): string | null {
+    try {
+      for (const entry of fs.readdirSync(parent, { withFileTypes: true })) {
+        if (entry.isDirectory() && this.normalizer.toKey(entry.name) === monthKey) {
+          return path.join(parent, entry.name);
+        }
+      }
+    } catch {
+      /* padre inexistente */
+    }
+    return null;
+  }
+
+  /**
+   * Resuelve el token {mes} esté en cualquier posición de la ruta. Recorre la
+   * ruta segmento a segmento; para el segmento del mes, si el nombre exacto no
+   * existe busca un hermano cuyo nombre normalice al mismo mes (tolera que la
+   * ortografía en disco difiera del formato configurado).
+   */
   private resolveSide(
     pattern: string,
     monthKey: string,
@@ -43,23 +61,30 @@ export class SyncService {
   ): ResolvedSide {
     const rendered = this.normalizer.render(monthKey, mapping.monthFormat);
     const direct = pattern.replace(/\{mes\}/gi, rendered);
-    if (fs.existsSync(direct)) {
-      return { resolved: direct, exists: true };
+    if (fs.existsSync(direct) || !/\{mes\}/i.test(pattern)) {
+      return { resolved: direct, exists: fs.existsSync(direct) };
     }
-    if (/\{mes\}/i.test(pattern)) {
-      const parent = path.dirname(direct);
-      try {
-        const entries = fs.readdirSync(parent, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory() && this.normalizer.toKey(entry.name) === monthKey) {
-            return { resolved: path.join(parent, entry.name), exists: true };
-          }
-        }
-      } catch {
-        /* padre inexistente */
+
+    const segments = pattern.split(/[\\/]+/);
+    let current = '';
+    for (let i = 0; i < segments.length; i += 1) {
+      const seg = segments[i];
+      if (i === 0) {
+        current = seg.endsWith(':') ? seg + path.sep : seg === '' ? path.sep : seg;
+        continue;
+      }
+      if (/\{mes\}/i.test(seg)) {
+        const renderedSeg = seg.replace(/\{mes\}/gi, rendered);
+        const candidate = path.join(current, renderedSeg);
+        const sibling = fs.existsSync(candidate)
+          ? candidate
+          : this.findMonthSibling(current, monthKey);
+        current = sibling ?? candidate;
+      } else {
+        current = path.join(current, seg);
       }
     }
-    return { resolved: direct, exists: false };
+    return { resolved: current, exists: fs.existsSync(current) };
   }
 
   private buildScanner(mapping: Mapping): Scanner {
