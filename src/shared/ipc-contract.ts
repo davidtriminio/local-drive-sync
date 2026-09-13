@@ -27,6 +27,7 @@ export const IpcChannels = {
   platformsList: 'platforms:list',
   projectCreate: 'project:create',
   creatorPrefsGet: 'creator:prefsGet',
+  creatorSetBasePath: 'creator:setBasePath',
   clientsSetIcon: 'clients:setIcon',
   clientsSetColor: 'clients:setColor',
 } as const;
@@ -311,6 +312,8 @@ export interface Api {
   createProject(req: CreateProjectRequest): Promise<CreateProjectResult>;
   /** Última configuración usada en el creador. */
   getCreatorPrefs(): Promise<CreatorPrefs>;
+  /** Guarda al instante la carpeta base (admite el token {mes}). */
+  setCreatorBasePath(basePath: string): Promise<void>;
   /** Suscripción a progreso; devuelve función para desuscribir. */
   onSyncProgress(cb: (p: SyncProgress) => void): () => void;
   onSyncDone(cb: (s: RunSummary) => void): () => void;

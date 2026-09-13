@@ -91,6 +91,9 @@ export class IpcService {
   getCreatorPrefs(): Promise<CreatorPrefs> {
     return this.api.getCreatorPrefs();
   }
+  setCreatorBasePath(basePath: string): Promise<void> {
+    return this.api.setCreatorBasePath(basePath);
+  }
   onSyncProgress(cb: (p: SyncProgress) => void): () => void {
     return this.api.onSyncProgress(cb);
   }

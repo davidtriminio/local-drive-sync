@@ -51,6 +51,8 @@ const api: Api = {
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),
   getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
+  setCreatorBasePath: (basePath: string) =>
+    ipcRenderer.invoke(IpcChannels.creatorSetBasePath, basePath),
   onSyncProgress: (cb: (p: SyncProgress) => void) => {
     const listener = (_e: IpcRendererEvent, payload: SyncProgress): void =>
       cb(payload);
