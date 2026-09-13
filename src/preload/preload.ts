@@ -3,6 +3,7 @@ import {
   IpcChannels,
   type Api,
   type AppSettings,
+  type CreateProjectRequest,
   type MappingDraft,
   type SyncPlan,
   type SyncPreviewRequest,
@@ -41,6 +42,10 @@ const api: Api = {
   listTrash: () => ipcRenderer.invoke(IpcChannels.trashList),
   restoreTrash: (trashId: string) =>
     ipcRenderer.invoke(IpcChannels.trashRestore, trashId),
+  listClients: () => ipcRenderer.invoke(IpcChannels.clientsList),
+  listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
+  createProject: (req: CreateProjectRequest) =>
+    ipcRenderer.invoke(IpcChannels.projectCreate, req),
   onSyncProgress: (cb: (p: SyncProgress) => void) => {
     const listener = (_e: IpcRendererEvent, payload: SyncProgress): void =>
       cb(payload);

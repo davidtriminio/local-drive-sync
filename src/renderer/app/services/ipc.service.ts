@@ -2,9 +2,13 @@ import { Injectable } from '@angular/core';
 import type {
   Api,
   AppSettings,
+  Client,
+  CreateProjectRequest,
+  CreateProjectResult,
   DiffResult,
   Mapping,
   MappingDraft,
+  Platform,
   RunDetail,
   RunSummary,
   SyncPlan,
@@ -67,6 +71,15 @@ export class IpcService {
   }
   restoreTrash(trashId: string): Promise<void> {
     return this.api.restoreTrash(trashId);
+  }
+  listClients(): Promise<Client[]> {
+    return this.api.listClients();
+  }
+  listPlatforms(): Promise<Platform[]> {
+    return this.api.listPlatforms();
+  }
+  createProject(req: CreateProjectRequest): Promise<CreateProjectResult> {
+    return this.api.createProject(req);
   }
   onSyncProgress(cb: (p: SyncProgress) => void): () => void {
     return this.api.onSyncProgress(cb);
