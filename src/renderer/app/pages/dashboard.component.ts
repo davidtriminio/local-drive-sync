@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
+import { chipStyle } from '../shared/colors';
 import type { Mapping } from '../../../shared/ipc-contract';
 
 /** Pantalla principal: lista de mapeos configurados. */
@@ -55,7 +56,8 @@ import type { Mapping } from '../../../shared/ipc-contract';
               <div class="flex items-start justify-between gap-4">
                 <div class="flex min-w-0 gap-3">
                   <div
-                    class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-emerald-300"
+                    class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    [style]="chip(m.color)"
                   >
                     <app-icon [name]="m.icon || 'store'" [size]="20" />
                   </div>
@@ -158,6 +160,7 @@ export class DashboardComponent {
 
   protected readonly mappings = signal<Mapping[]>([]);
   protected readonly loading = signal(true);
+  protected readonly chip = chipStyle;
 
   constructor() {
     void this.load();
