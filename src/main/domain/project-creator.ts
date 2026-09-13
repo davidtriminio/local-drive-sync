@@ -84,17 +84,22 @@ export class ProjectCreator {
       log.push(`CREATED: ${sub}`);
     }
 
+    // Si solo se genera un tipo de archivo, va directo a 04_workfiles/ (sin
+    // subcarpeta psd|ai); con varios tipos, cada uno en su subcarpeta.
+    const singleType = req.fileTypes.length === 1;
+    const workfiles = path.join(projectPath, '04_workfiles');
+
     // Copia de plantillas PSD por plataforma seleccionada.
     if (req.fileTypes.includes('psd')) {
-      const psdDir = path.join(projectPath, '04_workfiles', 'psd');
+      const psdDir = singleType ? workfiles : path.join(workfiles, 'psd');
       fs.mkdirSync(psdDir, { recursive: true });
+      const rel = singleType ? '04_workfiles/' : '04_workfiles/psd/';
       for (const platform of req.platforms) {
         const templateName = psdTemplateFor(platform);
         const src = path.join(this.templatesDir, templateName);
         if (fs.existsSync(src)) {
-          const dest = path.join(psdDir, templateName);
-          fs.copyFileSync(src, dest);
-          log.push(`COPIED: ${templateName} -> 04_workfiles/psd/`);
+          fs.copyFileSync(src, path.join(psdDir, templateName));
+          log.push(`COPIED: ${templateName} -> ${rel}`);
         } else {
           log.push(`MISSING TEMPLATE: ${templateName}`);
         }
@@ -103,12 +108,13 @@ export class ProjectCreator {
 
     // Copia de plantilla AI.
     if (req.fileTypes.includes('ai')) {
-      const aiDir = path.join(projectPath, '04_workfiles', 'ai');
+      const aiDir = singleType ? workfiles : path.join(workfiles, 'ai');
       fs.mkdirSync(aiDir, { recursive: true });
+      const rel = singleType ? '04_workfiles/' : '04_workfiles/ai/';
       const src = path.join(this.templatesDir, 'base.ai');
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, path.join(aiDir, 'base.ai'));
-        log.push('COPIED: base.ai -> 04_workfiles/ai/');
+        log.push(`COPIED: base.ai -> ${rel}`);
       } else {
         log.push('MISSING TEMPLATE: base.ai');
       }
