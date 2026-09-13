@@ -139,6 +139,14 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   // --- Creador de proyectos gráficos ---
   ipcMain.handle(IpcChannels.clientsList, () => repo.listClients());
 
+  ipcMain.handle(
+    IpcChannels.clientsSetIcon,
+    (_e, name: string, icon: string) => {
+      repo.setClientIcon(sanitizeName(name), icon);
+      return repo.listClients();
+    },
+  );
+
   ipcMain.handle(IpcChannels.platformsList, () =>
     ProjectCreator.loadPlatforms(platformsFile()),
   );
@@ -150,6 +158,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
         sanitizeName(req.client),
         sanitizeName(req.project),
         result.folderName,
+        req.clientIcon,
       );
       // Recuerda la configuración para el próximo proyecto.
       repo.setCreatorPrefs({

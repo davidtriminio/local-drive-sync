@@ -171,11 +171,18 @@ export class Repository {
   }
 
   /** Registra un proyecto para un cliente, creando el cliente si no existe. */
-  recordProject(clientName: string, projectName: string, folder: string): void {
+  recordProject(
+    clientName: string,
+    projectName: string,
+    folder: string,
+    icon?: string,
+  ): void {
     let client = this.db.clients.find((c) => c.name === clientName);
     if (!client) {
-      client = { name: clientName, projects: [] };
+      client = { name: clientName, icon: icon || 'user', projects: [] };
       this.db.clients.push(client);
+    } else if (icon) {
+      client.icon = icon;
     }
     let project = client.projects.find((p) => p.name === projectName);
     if (!project) {
@@ -196,6 +203,7 @@ export class Repository {
       if (!existing) {
         this.db.clients.push({
           name: inc.name,
+          icon: inc.icon || 'user',
           projects: inc.projects.map((p) => ({
             name: p.name,
             folders: [...p.folders],
@@ -217,6 +225,15 @@ export class Repository {
       }
     }
     this.persist();
+  }
+
+  /** Asigna un icono a un cliente existente. */
+  setClientIcon(name: string, icon: string): void {
+    const client = this.db.clients.find((c) => c.name === name);
+    if (client) {
+      client.icon = icon;
+      this.persist();
+    }
   }
 
   // --- Preferencias del creador ---
