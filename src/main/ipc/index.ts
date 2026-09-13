@@ -35,6 +35,16 @@ export function registerIpcHandlers(ctx: IpcContext): void {
 
   ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion());
 
+  ipcMain.handle(IpcChannels.windowToggleFullScreen, () => {
+    const win = ctx.getWindow();
+    if (!win) {
+      return false;
+    }
+    const next = !win.isFullScreen();
+    win.setFullScreen(next);
+    return next;
+  });
+
   ipcMain.handle(IpcChannels.dialogPickFolder, async () => {
     const win = ctx.getWindow();
     const result = win

@@ -23,6 +23,9 @@ export class IpcService {
   getAppVersion(): Promise<string> {
     return this.api.getAppVersion();
   }
+  toggleFullScreen(): Promise<boolean> {
+    return this.api.toggleFullScreen();
+  }
   pickFolder(): Promise<string | null> {
     return this.api.pickFolder();
   }

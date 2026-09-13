@@ -16,6 +16,8 @@ import {
  */
 const api: Api = {
   getAppVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
+  toggleFullScreen: () =>
+    ipcRenderer.invoke(IpcChannels.windowToggleFullScreen),
   pickFolder: () => ipcRenderer.invoke(IpcChannels.dialogPickFolder),
   listMappings: () => ipcRenderer.invoke(IpcChannels.mappingsList),
   saveMapping: (draft: MappingDraft) =>

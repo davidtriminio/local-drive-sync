@@ -38,7 +38,15 @@ interface NavItem {
           }
         </nav>
 
-        <div class="mt-4 px-3 text-xs text-slate-600">v{{ version() }}</div>
+        <button
+          (click)="toggleFullScreen()"
+          class="mt-4 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/60"
+        >
+          <span class="w-5 text-center">{{ fullScreen() ? '🗗' : '⛶' }}</span>
+          {{ fullScreen() ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+        </button>
+
+        <div class="mt-2 px-3 text-xs text-slate-600">v{{ version() }} · F11</div>
       </aside>
 
       <main class="flex-1 overflow-y-auto">
@@ -50,6 +58,7 @@ interface NavItem {
 export class AppComponent {
   private readonly ipc = inject(IpcService);
   protected readonly version = signal('—');
+  protected readonly fullScreen = signal(false);
 
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: '🗂️', exact: true },
@@ -63,5 +72,9 @@ export class AppComponent {
       .getAppVersion()
       .then((v) => this.version.set(v))
       .catch(() => this.version.set('?'));
+  }
+
+  protected async toggleFullScreen(): Promise<void> {
+    this.fullScreen.set(await this.ipc.toggleFullScreen());
   }
 }

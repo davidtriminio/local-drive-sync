@@ -5,6 +5,7 @@
 
 export const IpcChannels = {
   appGetVersion: 'app:getVersion',
+  windowToggleFullScreen: 'window:toggleFullScreen',
   dialogPickFolder: 'dialog:pickFolder',
   mappingsList: 'mappings:list',
   mappingsSave: 'mappings:save',
@@ -184,6 +185,8 @@ export interface AppSettings {
 /** Superficie expuesta al renderer vía contextBridge (window.api). */
 export interface Api {
   getAppVersion(): Promise<string>;
+  /** Alterna pantalla completa; devuelve el nuevo estado. */
+  toggleFullScreen(): Promise<boolean>;
   pickFolder(): Promise<string | null>;
   listMappings(): Promise<Mapping[]>;
   saveMapping(draft: MappingDraft): Promise<Mapping>;
