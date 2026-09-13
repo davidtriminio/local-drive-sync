@@ -78,6 +78,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     const mapping: Mapping = {
       id: draft.id ?? randomUUID(),
       name: draft.name,
+      icon: draft.icon ?? existing?.icon ?? 'store',
       localPattern: draft.localPattern,
       drivePattern: draft.drivePattern,
       monthFormat: draft.monthFormat,

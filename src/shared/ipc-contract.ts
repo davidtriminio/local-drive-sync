@@ -38,6 +38,8 @@ export type FileStatus = 'NEW' | 'MODIFIED' | 'EQUAL' | 'ONLY_DRIVE';
 export interface Mapping {
   id: string;
   name: string;
+  /** Nombre de icono (de la librería) mostrado en la lista de mapeos. */
+  icon: string;
   /** Ruta local, puede contener el token {mes}. Ej: D:\Exports\{mes}\Cliente 1 */
   localPattern: string;
   /** Ruta Drive, puede contener el token {mes}. Ej: G:\...\Cliente 1\artes\{mes} */
@@ -53,6 +55,7 @@ export interface Mapping {
 export interface MappingDraft {
   id?: string;
   name: string;
+  icon?: string;
   localPattern: string;
   drivePattern: string;
   monthFormat: MonthFormat;
