@@ -2,6 +2,13 @@
 
 /* --- Componentes de UI reutilizables (tema oscuro) --- */
 
+.page-title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
