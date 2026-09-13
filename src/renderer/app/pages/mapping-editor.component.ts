@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import { IconPickerComponent } from '../shared/icon-picker.component';
 import { ColorPickerComponent } from '../shared/color-picker.component';
 import type { MonthFormat } from '../../../shared/ipc-contract';
@@ -10,23 +11,35 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
 @Component({
   selector: 'app-mapping-editor',
   standalone: true,
-  imports: [FormsModule, IconPickerComponent, ColorPickerComponent],
+  imports: [
+    FormsModule,
+    IconComponent,
+    IconPickerComponent,
+    ColorPickerComponent,
+  ],
   template: `
     <section class="mx-auto max-w-2xl p-8">
-      <h1 class="mb-1 text-2xl font-semibold">
-        {{ editing() ? 'Editar mapeo' : 'Nuevo mapeo' }}
-      </h1>
-      <p class="mb-6 text-sm text-slate-400">
-        Usa el token <code class="text-emerald-300">&#123;mes&#125;</code> donde
-        cambie el mes; la app lo resuelve en cada sincronización.
-      </p>
+      <header class="mb-8 flex items-center gap-3">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+        >
+          <app-icon [name]="icon || 'layers'" [size]="24" />
+        </div>
+        <div>
+          <h1 class="page-title">{{ editing() ? 'Editar mapeo' : 'Nuevo mapeo' }}</h1>
+          <p class="text-sm text-slate-400">
+            Usa el token <code class="text-emerald-300">&#123;mes&#125;</code> donde
+            cambie el mes; la app lo resuelve en cada sincronización.
+          </p>
+        </div>
+      </header>
 
-      <div class="space-y-5">
+      <div class="card space-y-5 p-6">
         <div>
           <label class="mb-1 block text-sm text-slate-300">Nombre (ej. cliente)</label>
           <input
             [(ngModel)]="name"
-            class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+            class="field"
             placeholder="Cliente 1"
           />
         </div>
@@ -52,14 +65,14 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
           <div class="flex gap-2">
             <input
               [(ngModel)]="localPattern"
-              class="w-full rounded-lg border bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              class="field font-mono text-xs"
               [class.border-slate-700]="conforms(localPattern)"
               [class.border-amber-500]="!conforms(localPattern)"
               placeholder="D:\\Exports\\{mes}\\Cliente 1"
             />
             <button
               (click)="pick('local')"
-              class="shrink-0 rounded-lg bg-slate-700 px-3 text-xs hover:bg-slate-600"
+              class="btn-ghost shrink-0"
             >
               Elegir…
             </button>
@@ -82,14 +95,14 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
           <div class="flex gap-2">
             <input
               [(ngModel)]="drivePattern"
-              class="w-full rounded-lg border bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              class="field font-mono text-xs"
               [class.border-slate-700]="conforms(drivePattern)"
               [class.border-amber-500]="!conforms(drivePattern)"
               placeholder="G:\\Mi unidad\\Cliente 1\\artes\\{mes}"
             />
             <button
               (click)="pick('drive')"
-              class="shrink-0 rounded-lg bg-slate-700 px-3 text-xs hover:bg-slate-600"
+              class="btn-ghost shrink-0"
             >
               Elegir…
             </button>
@@ -107,7 +120,7 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
             <label class="mb-1 block text-sm text-slate-300">Formato de mes</label>
             <select
               [(ngModel)]="monthFormat"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              class="field"
             >
               <option value="Mes-Año">Mes-Año (Septiembre-2026)</option>
               <option value="MM-AAAA">MM-AAAA (09-2026)</option>
@@ -127,7 +140,7 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
           <textarea
             [(ngModel)]="exclusionsText"
             rows="3"
-            class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+            class="field font-mono text-xs"
             placeholder="*.tmp&#10;Thumbs.db"
           ></textarea>
         </div>
@@ -139,13 +152,13 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
         <div class="flex gap-3 pt-2">
           <button
             (click)="guardar()"
-            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400"
+            class="btn-primary"
           >
             Guardar
           </button>
           <button
             (click)="cancelar()"
-            class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600"
+            class="btn-ghost"
           >
             Cancelar
           </button>
