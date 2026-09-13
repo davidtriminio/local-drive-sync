@@ -24,7 +24,17 @@ async function createWindow(): Promise<void> {
     },
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.maximize();
+    mainWindow?.show();
+  });
+
+  // F11 alterna pantalla completa.
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      mainWindow?.setFullScreen(!mainWindow.isFullScreen());
+    }
+  });
 
   if (isDev) {
     await mainWindow.loadURL(DEV_SERVER_URL);
