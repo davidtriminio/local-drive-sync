@@ -26,7 +26,8 @@ npm run dist    # instalador .exe (NSIS) en release/
 - [Especificación de requisitos y reglas de sincronización](docs/ESPECIFICACION.md)
 - [Arquitectura técnica](docs/ARQUITECTURA.md)
 - [Estructura del proyecto y andamiaje](docs/ESTRUCTURA.md)
+- [Implementación v1 (qué se construyó)](docs/IMPLEMENTACION.md)
 
 ## Roadmap
 
-Requisitos ✅ → Arquitectura ✅ → Andamiaje ✅ → Diseño de UI → Implementación → Pruebas → Distribución.
+Requisitos ✅ → Arquitectura ✅ → Andamiaje ✅ → Implementación v1 ✅ → Validación funcional → Pruebas → Distribución.

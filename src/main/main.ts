@@ -41,7 +41,10 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  registerIpcHandlers();
+  registerIpcHandlers({
+    getWindow: () => mainWindow,
+    dataDir: app.getPath('userData'),
+  });
   await createWindow();
 
   app.on('activate', () => {

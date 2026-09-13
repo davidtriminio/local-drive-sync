@@ -1,0 +1,156 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type {
+  AppSettings,
+  Mapping,
+  RunDetail,
+  RunSummary,
+  TrashEntry,
+} from '../../shared/ipc-contract';
+import type { IndexEntry } from '../domain/comparator';
+
+interface Database {
+  mappings: Mapping[];
+  settings: AppSettings;
+  runs: RunDetail[];
+  trash: TrashEntry[];
+  /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
+  index: Record<string, Record<string, IndexEntry>>;
+}
+
+const DEFAULT_SETTINGS: AppSettings = {
+  defaultExclusions: ['Thumbs.db', 'desktop.ini', '.DS_Store', '*.tmp', '*.bak'],
+  preferredMonthFormat: 'Mes-Año',
+  copyConcurrency: 3,
+};
+
+function emptyDb(): Database {
+  return {
+    mappings: [],
+    settings: { ...DEFAULT_SETTINGS },
+    runs: [],
+    trash: [],
+    index: {},
+  };
+}
+
+/**
+ * Repositorio de datos basado en un único fichero JSON en userData.
+ *
+ * Implementa toda la superficie de persistencia de la app. En la fase de
+ * endurecimiento se puede sustituir por SQLite (better-sqlite3) manteniendo
+ * esta misma API pública, sin tocar el resto del dominio.
+ */
+export class Repository {
+  private readonly file: string;
+  private db: Database;
+
+  constructor(dataDir: string) {
+    this.file = path.join(dataDir, 'local-drive-sync.json');
+    this.db = this.load();
+  }
+
+  private load(): Database {
+    try {
+      const raw = fs.readFileSync(this.file, 'utf-8');
+      const parsed = JSON.parse(raw) as Partial<Database>;
+      return { ...emptyDb(), ...parsed, settings: { ...DEFAULT_SETTINGS, ...parsed.settings } };
+    } catch {
+      return emptyDb();
+    }
+  }
+
+  private persist(): void {
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(this.db, null, 2), 'utf-8');
+    fs.renameSync(tmp, this.file);
+  }
+
+  // --- Mappings ---
+  listMappings(): Mapping[] {
+    return [...this.db.mappings].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  getMapping(id: string): Mapping | undefined {
+    return this.db.mappings.find((m) => m.id === id);
+  }
+
+  upsertMapping(mapping: Mapping): Mapping {
+    const idx = this.db.mappings.findIndex((m) => m.id === mapping.id);
+    if (idx >= 0) {
+      this.db.mappings[idx] = mapping;
+    } else {
+      this.db.mappings.push(mapping);
+    }
+    this.persist();
+    return mapping;
+  }
+
+  deleteMapping(id: string): void {
+    this.db.mappings = this.db.mappings.filter((m) => m.id !== id);
+    this.persist();
+  }
+
+  // --- Settings ---
+  getSettings(): AppSettings {
+    return { ...this.db.settings };
+  }
+
+  setSettings(settings: AppSettings): AppSettings {
+    this.db.settings = { ...settings };
+    this.persist();
+    return this.getSettings();
+  }
+
+  // --- Index incremental ---
+  getIndex(mappingId: string, monthKey: string): Record<string, IndexEntry> {
+    return this.db.index[`${mappingId}::${monthKey}`] ?? {};
+  }
+
+  setIndexEntries(
+    mappingId: string,
+    monthKey: string,
+    entries: Record<string, IndexEntry>,
+  ): void {
+    const key = `${mappingId}::${monthKey}`;
+    this.db.index[key] = { ...this.getIndex(mappingId, monthKey), ...entries };
+    this.persist();
+  }
+
+  // --- Runs / historial ---
+  createRun(run: RunDetail): void {
+    this.db.runs.unshift(run);
+    this.persist();
+  }
+
+  updateRun(run: RunDetail): void {
+    const idx = this.db.runs.findIndex((r) => r.id === run.id);
+    if (idx >= 0) {
+      this.db.runs[idx] = run;
+      this.persist();
+    }
+  }
+
+  listRuns(): RunSummary[] {
+    return this.db.runs.map(({ items, ...summary }) => summary);
+  }
+
+  getRun(id: string): RunDetail | null {
+    return this.db.runs.find((r) => r.id === id) ?? null;
+  }
+
+  // --- Papelera ---
+  addTrashEntry(entry: TrashEntry): void {
+    this.db.trash.unshift(entry);
+    this.persist();
+  }
+
+  getTrashEntry(id: string): TrashEntry | undefined {
+    return this.db.trash.find((t) => t.id === id);
+  }
+
+  listTrash(): TrashEntry[] {
+    return [...this.db.trash];
+  }
+}

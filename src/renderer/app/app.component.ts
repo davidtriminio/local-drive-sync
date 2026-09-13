@@ -1,78 +1,67 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { IpcService } from './services/ipc.service';
 
-/**
- * Pantalla de arranque del andamiaje.
- *
- * Su único propósito en esta fase es confirmar visualmente que:
- *  - Angular standalone arranca dentro de Electron,
- *  - Tailwind está activo,
- *  - el puente IPC seguro (window.api) responde desde el proceso main.
- *
- * Se sustituirá por el Dashboard / Wizard real en la fase de UI.
- */
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+  exact: boolean;
+}
+
+/** Shell de la aplicación: barra lateral de navegación + outlet de rutas. */
 @Component({
   selector: 'app-root',
   standalone: true,
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <main
-      class="min-h-screen w-full bg-slate-900 text-slate-100 flex items-center justify-center p-8"
-    >
-      <div
-        class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-800/60 shadow-xl p-8"
+    <div class="flex h-screen w-full bg-slate-900 text-slate-100">
+      <aside
+        class="flex w-60 flex-col border-r border-slate-800 bg-slate-950/60 p-4"
       >
-        <div class="flex items-center gap-3">
-          <span class="inline-block h-3 w-3 rounded-full bg-emerald-400"></span>
-          <h1 class="text-2xl font-semibold tracking-tight">
-            Local Drive Sync
-          </h1>
+        <div class="mb-6 flex items-center gap-2 px-2">
+          <span class="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+          <span class="text-sm font-semibold tracking-tight">Local Drive Sync</span>
         </div>
 
-        <p class="mt-2 text-slate-400">
-          Andamiaje listo — copia selectiva Local &rarr; Google Drive.
-        </p>
+        <nav class="flex flex-1 flex-col gap-1">
+          @for (item of nav; track item.path) {
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="bg-slate-800 text-white"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-slate-800/60"
+            >
+              <span class="w-5 text-center">{{ item.icon }}</span>
+              {{ item.label }}
+            </a>
+          }
+        </nav>
 
-        <dl class="mt-6 grid grid-cols-2 gap-3 text-sm">
-          <div class="rounded-lg bg-slate-900/60 p-3">
-            <dt class="text-slate-500">Puente IPC</dt>
-            <dd class="mt-1 font-medium" [class.text-emerald-400]="bridgeOk()" [class.text-amber-400]="!bridgeOk()">
-              {{ bridgeOk() ? 'Conectado' : 'Sin conexión' }}
-            </dd>
-          </div>
-          <div class="rounded-lg bg-slate-900/60 p-3">
-            <dt class="text-slate-500">Versión app</dt>
-            <dd class="mt-1 font-medium">{{ version() }}</dd>
-          </div>
-        </dl>
+        <div class="mt-4 px-3 text-xs text-slate-600">v{{ version() }}</div>
+      </aside>
 
-        <div class="mt-6">
-          <p class="text-xs uppercase tracking-wider text-slate-500">
-            Hoja de ruta
-          </p>
-          <ol class="mt-2 space-y-1 text-sm text-slate-300">
-            <li>✅ Requisitos y arquitectura</li>
-            <li>✅ Andamiaje Electron + Angular + Tailwind</li>
-            <li>◻ Capa de datos (SQLite) y dominio</li>
-            <li>◻ Diseño e implementación de UI (Wizard)</li>
-            <li>◻ Pruebas y distribución (instalador)</li>
-          </ol>
-        </div>
-      </div>
-    </main>
+      <main class="flex-1 overflow-y-auto">
+        <router-outlet />
+      </main>
+    </div>
   `,
 })
 export class AppComponent {
+  private readonly ipc = inject(IpcService);
   protected readonly version = signal('—');
-  protected readonly bridgeOk = signal(false);
+
+  protected readonly nav: NavItem[] = [
+    { path: '', label: 'Mapeos', icon: '🗂️', exact: true },
+    { path: 'history', label: 'Historial', icon: '🕑', exact: false },
+    { path: 'trash', label: 'Papelera', icon: '♻️', exact: false },
+    { path: 'settings', label: 'Ajustes', icon: '⚙️', exact: false },
+  ];
 
   constructor() {
-    if (window.api?.getAppVersion) {
-      window.api
-        .getAppVersion()
-        .then((v) => {
-          this.version.set(v);
-          this.bridgeOk.set(true);
-        })
-        .catch(() => this.bridgeOk.set(false));
-    }
+    this.ipc
+      .getAppVersion()
+      .then((v) => this.version.set(v))
+      .catch(() => this.version.set('?'));
   }
 }

@@ -1,9 +1,11 @@
 import { ApplicationConfig } from '@angular/core';
+import { provideRouter, withHashLocation } from '@angular/router';
+import { routes } from './app.routes';
 
 /**
- * Configuración raíz de la aplicación Angular.
- * Por ahora sin providers; se añadirán routing y servicios en fases posteriores.
+ * Configuración raíz. Se usa hash location porque en producción la app se
+ * sirve vía file:// dentro de Electron.
  */
 export const appConfig: ApplicationConfig = {
-  providers: [],
+  providers: [provideRouter(routes, withHashLocation())],
 };
