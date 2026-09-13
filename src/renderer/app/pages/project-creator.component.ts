@@ -1,54 +1,87 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import {
   DEFAULT_SUBFOLDERS,
   type Client,
   type Platform,
 } from '../../../shared/ipc-contract';
 
-const BASE_PATH_KEY = 'creator.basePath';
-
 /** Creador de proyectos gráficos: cliente + proyecto -> estructura + PSD base. */
 @Component({
   selector: 'app-project-creator',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
-    <section class="mx-auto max-w-2xl p-8">
-      <header class="mb-6">
-        <h1 class="text-2xl font-semibold">Nuevo proyecto</h1>
-        <p class="text-sm text-slate-400">
-          Genera la estructura de carpetas y el PSD base para un cliente.
-        </p>
+    <section class="mx-auto max-w-3xl p-8">
+      <header class="mb-8 flex items-center gap-3">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-400 to-purple-600 text-white shadow-lg shadow-purple-500/20"
+        >
+          <app-icon name="palette" [size]="24" />
+        </div>
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Nuevo proyecto</h1>
+          <p class="text-sm text-slate-400">
+            Estructura de carpetas y PSD base para un cliente.
+          </p>
+        </div>
       </header>
 
-      <div class="space-y-5">
+      <!-- Acceso rápido: badges de cliente -->
+      @if (clients().length > 0) {
+        <div class="mb-6">
+          <div class="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+            <app-icon name="user" [size]="14" /> Clientes
+          </div>
+          <div class="flex flex-wrap gap-2">
+            @for (c of clients(); track c.name) {
+              <button
+                (click)="selectClient(c.name)"
+                [class]="badgeClass(c.name)"
+              >
+                <app-icon name="user" [size]="14" />
+                <span class="capitalize">{{ c.name.replaceAll('_', ' ') }}</span>
+                <span class="rounded-full bg-black/20 px-1.5 text-[10px] leading-4">
+                  {{ c.projects.length }}
+                </span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <div
+        class="space-y-6 rounded-2xl border border-white/5 bg-slate-900/40 p-6 shadow-xl shadow-black/20"
+      >
+        <!-- Carpeta base -->
         <div>
-          <label class="mb-1 block text-sm text-slate-300">Carpeta base</label>
+          <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
+            <app-icon name="folderOpen" [size]="16" /> Carpeta base
+          </label>
           <div class="flex gap-2">
             <input
               [(ngModel)]="basePath"
-              (ngModelChange)="persistBase()"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 font-mono text-xs text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
               placeholder="V:\\graphic_design\\projects"
             />
-            <button
-              (click)="pickBase()"
-              class="shrink-0 rounded-lg bg-slate-700 px-3 text-xs hover:bg-slate-600"
-            >
-              Elegir…
+            <button (click)="pickBase()" class="btn-ghost shrink-0">
+              <app-icon name="folder" [size]="16" /> Elegir
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <!-- Cliente + proyecto -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm text-slate-300">Cliente</label>
+            <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
+              <app-icon name="user" [size]="16" /> Cliente
+            </label>
             <input
               [(ngModel)]="client"
               list="clients-list"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
               placeholder="cliente"
             />
             <datalist id="clients-list">
@@ -58,89 +91,110 @@ const BASE_PATH_KEY = 'creator.basePath';
             </datalist>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-300">Proyecto</label>
+            <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
+              <app-icon name="folder" [size]="16" /> Proyecto
+            </label>
             <input
               [(ngModel)]="project"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 text-sm text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
               placeholder="nombre_proyecto"
             />
           </div>
         </div>
 
+        <!-- Tipos de archivo -->
         <div>
-          <label class="mb-2 block text-sm text-slate-300">Plataformas (PSD base)</label>
+          <label class="mb-2 block text-sm font-medium text-slate-300">
+            Tipos de archivo
+          </label>
+          <div class="flex gap-2">
+            <button (click)="psd = !psd" [class]="toggleClass(psd)">
+              <app-icon name="image" [size]="16" /> PSD
+            </button>
+            <button (click)="ai = !ai" [class]="toggleClass(ai)">
+              <app-icon name="file" [size]="16" /> AI
+            </button>
+          </div>
+        </div>
+
+        <!-- Plataformas -->
+        <div>
+          <label class="mb-2 block text-sm font-medium text-slate-300">
+            Plataformas
+            <span class="text-slate-500">(un PSD base por plataforma)</span>
+          </label>
           @if (platforms().length === 0) {
             <p class="text-xs text-slate-500">No hay plataformas configuradas.</p>
           } @else {
             <div class="flex flex-wrap gap-2">
               @for (p of platforms(); track p.name) {
-                <label
-                  class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm"
+                <button
+                  (click)="togglePlatform(p.name)"
+                  [class]="toggleClass(selectedPlatforms().has(p.name))"
                 >
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4"
-                    [checked]="selectedPlatforms().has(p.name)"
-                    (change)="togglePlatform(p.name)"
+                  <app-icon
+                    [name]="selectedPlatforms().has(p.name) ? 'check' : 'image'"
+                    [size]="16"
                   />
                   {{ p.name }}
-                </label>
+                </button>
               }
             </div>
           }
         </div>
 
-        <div class="flex gap-6">
-          <label class="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" [(ngModel)]="psd" class="h-4 w-4" /> PSD
-          </label>
-          <label class="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" [(ngModel)]="ai" class="h-4 w-4" /> AI
-          </label>
-        </div>
-
-        <details class="rounded-lg border border-slate-800 bg-slate-800/30 p-3">
-          <summary class="cursor-pointer text-sm text-slate-300">
-            Subcarpetas ({{ selectedSubfolders().size }}/{{ subfolders.length }})
+        <!-- Subcarpetas -->
+        <details class="group rounded-xl border border-white/5 bg-slate-950/30 p-4">
+          <summary
+            class="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-slate-300"
+          >
+            <span>Subcarpetas</span>
+            <span class="flex items-center gap-2 text-xs text-slate-500">
+              {{ selectedSubfolders().size }}/{{ subfolders.length }}
+              <app-icon name="chevronRight" [size]="16" />
+            </span>
           </summary>
-          <div class="mt-3 grid grid-cols-2 gap-2">
+          <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             @for (s of subfolders; track s) {
-              <label class="flex items-center gap-2 text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  class="h-3.5 w-3.5"
-                  [checked]="selectedSubfolders().has(s)"
-                  (change)="toggleSubfolder(s)"
+              <button
+                (click)="toggleSubfolder(s)"
+                class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left font-mono text-xs transition-colors"
+                [class]="selectedSubfolders().has(s) ? 'text-emerald-300' : 'text-slate-500'"
+              >
+                <app-icon
+                  [name]="selectedSubfolders().has(s) ? 'check' : 'plus'"
+                  [size]="14"
                 />
-                <span class="font-mono">{{ s }}</span>
-              </label>
+                {{ s }}
+              </button>
             }
           </div>
         </details>
 
         @if (error()) {
-          <p class="text-sm text-rose-400">{{ error() }}</p>
+          <div
+            class="flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300"
+          >
+            <app-icon name="alert" [size]="18" /> {{ error() }}
+          </div>
         }
 
         @if (duplicateFolder()) {
           <div
-            class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-200"
+            class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200"
           >
-            <p class="mb-2">
-              Ya existe un proyecto de este cliente este mes:
-              <code class="font-mono">{{ duplicateFolder() }}</code>.
+            <p class="mb-3 flex items-start gap-2">
+              <app-icon name="alert" [size]="18" />
+              <span>
+                Ya existe un proyecto de este cliente este mes:
+                <code class="font-mono">{{ duplicateFolder() }}</code>.
+              </span>
             </p>
-            <div class="flex gap-2">
-              <button
-                (click)="create(true)"
-                class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-slate-950 hover:bg-amber-400"
-              >
+            <div class="flex gap-2 pl-7">
+              <button (click)="create(true)" class="btn-warn">
                 Crear de todos modos
               </button>
-              <button
-                (click)="duplicateFolder.set('')"
-                class="rounded-lg bg-slate-700 px-3 py-1.5 text-xs hover:bg-slate-600"
-              >
+              <button (click)="duplicateFolder.set('')" class="btn-ghost">
                 Cancelar
               </button>
             </div>
@@ -149,24 +203,74 @@ const BASE_PATH_KEY = 'creator.basePath';
 
         @if (success()) {
           <div
-            class="rounded-lg border border-emerald-500/50 bg-emerald-500/10 p-4 text-sm text-emerald-200"
+            class="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
           >
-            Proyecto creado: <code class="font-mono">{{ success() }}</code>
+            <app-icon name="check" [size]="18" /> Proyecto creado:
+            <code class="font-mono">{{ success() }}</code>
           </div>
         }
 
-        <div class="pt-2">
-          <button
-            (click)="create(false)"
-            [disabled]="busy()"
-            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-          >
+        <div class="pt-1">
+          <button (click)="create(false)" [disabled]="busy()" class="btn-primary">
+            <app-icon name="sparkles" [size]="18" />
             {{ busy() ? 'Creando…' : 'Crear proyecto' }}
           </button>
         </div>
       </div>
     </section>
   `,
+  styles: [
+    `
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.75rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: rgb(2 6 23);
+        background-image: linear-gradient(
+          to bottom right,
+          rgb(52 211 153),
+          rgb(13 148 136)
+        );
+        box-shadow: 0 10px 25px -10px rgba(16, 185, 129, 0.6);
+        transition: filter 0.15s;
+      }
+      .btn-primary:hover {
+        filter: brightness(1.08);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+      }
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        border-radius: 0.75rem;
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+        color: rgb(203 213 225);
+        background: rgba(255, 255, 255, 0.06);
+        transition: background 0.15s;
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .btn-warn {
+        border-radius: 0.75rem;
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: rgb(2 6 23);
+        background: rgb(251 191 36);
+      }
+      .btn-warn:hover {
+        background: rgb(252 211 77);
+      }
+    `,
+  ],
 })
 export class ProjectCreatorComponent {
   private readonly ipc = inject(IpcService);
@@ -190,30 +294,65 @@ export class ProjectCreatorComponent {
   protected ai = false;
 
   constructor() {
-    this.basePath = localStorage.getItem(BASE_PATH_KEY) ?? '';
     void this.load();
   }
 
   private async load(): Promise<void> {
-    const [clients, platforms] = await Promise.all([
+    const [clients, platforms, prefs] = await Promise.all([
       this.ipc.listClients(),
       this.ipc.listPlatforms(),
+      this.ipc.getCreatorPrefs(),
     ]);
     this.clients.set(clients);
     this.platforms.set(platforms);
-    // Por defecto, todas las plataformas seleccionadas.
-    this.selectedPlatforms.set(new Set(platforms.map((p) => p.name)));
+
+    // Restaura la última configuración usada; si falta, valores por defecto.
+    this.basePath = prefs.basePath;
+    if (prefs.fileTypes.length > 0) {
+      this.psd = prefs.fileTypes.includes('psd');
+      this.ai = prefs.fileTypes.includes('ai');
+    }
+    this.selectedPlatforms.set(
+      new Set(
+        prefs.platforms.length > 0
+          ? prefs.platforms
+          : platforms.map((p) => p.name),
+      ),
+    );
+    this.selectedSubfolders.set(
+      new Set(
+        prefs.subfolders.length > 0 ? prefs.subfolders : DEFAULT_SUBFOLDERS,
+      ),
+    );
+    if (prefs.lastClient) {
+      this.client = prefs.lastClient;
+    }
   }
 
-  protected persistBase(): void {
-    localStorage.setItem(BASE_PATH_KEY, this.basePath.trim());
+  protected selectClient(name: string): void {
+    this.client = name;
+  }
+
+  protected badgeClass(name: string): string {
+    const base =
+      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors';
+    return this.client.trim().toLowerCase() === name
+      ? `${base} bg-emerald-500 text-slate-950`
+      : `${base} bg-white/5 text-slate-300 hover:bg-white/10`;
+  }
+
+  protected toggleClass(active: boolean): string {
+    const base =
+      'inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors';
+    return active
+      ? `${base} bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40`
+      : `${base} bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200`;
   }
 
   protected async pickBase(): Promise<void> {
     const chosen = await this.ipc.pickFolder();
     if (chosen) {
       this.basePath = chosen;
-      this.persistBase();
     }
   }
 
