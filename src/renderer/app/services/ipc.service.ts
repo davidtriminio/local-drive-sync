@@ -74,4 +74,7 @@ export class IpcService {
   onSyncDone(cb: (s: RunSummary) => void): () => void {
     return this.api.onSyncDone(cb);
   }
+  onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void {
+    return this.api.onFullScreenChange(cb);
+  }
 }

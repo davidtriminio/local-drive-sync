@@ -6,6 +6,7 @@
 export const IpcChannels = {
   appGetVersion: 'app:getVersion',
   windowToggleFullScreen: 'window:toggleFullScreen',
+  windowFullScreenChanged: 'window:fullScreenChanged',
   dialogPickFolder: 'dialog:pickFolder',
   mappingsList: 'mappings:list',
   mappingsSave: 'mappings:save',
@@ -204,4 +205,6 @@ export interface Api {
   /** Suscripción a progreso; devuelve función para desuscribir. */
   onSyncProgress(cb: (p: SyncProgress) => void): () => void;
   onSyncDone(cb: (s: RunSummary) => void): () => void;
+  /** Notifica cambios de pantalla completa (F11, botón o nativo). */
+  onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void;
 }

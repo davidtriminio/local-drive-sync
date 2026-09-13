@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'node:path';
 import { registerIpcHandlers } from './ipc';
+import { IpcChannels } from '../shared/ipc-contract';
 
 /** En desarrollo cargamos el dev-server de Angular; en producción, el build estático. */
 const isDev = !app.isPackaged && process.env['NODE_ENV'] === 'development';
@@ -35,6 +36,13 @@ async function createWindow(): Promise<void> {
       mainWindow?.setFullScreen(!mainWindow.isFullScreen());
     }
   });
+
+  // Notifica al renderer cada cambio de estado (F11, botón o nativo).
+  const notifyFullScreen = (value: boolean): void => {
+    mainWindow?.webContents.send(IpcChannels.windowFullScreenChanged, value);
+  };
+  mainWindow.on('enter-full-screen', () => notifyFullScreen(true));
+  mainWindow.on('leave-full-screen', () => notifyFullScreen(false));
 
   if (isDev) {
     await mainWindow.loadURL(DEV_SERVER_URL);

@@ -53,6 +53,13 @@ const api: Api = {
     ipcRenderer.on(IpcChannels.syncDone, listener);
     return () => ipcRenderer.removeListener(IpcChannels.syncDone, listener);
   },
+  onFullScreenChange: (cb: (isFullScreen: boolean) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: boolean): void =>
+      cb(payload);
+    ipcRenderer.on(IpcChannels.windowFullScreenChanged, listener);
+    return () =>
+      ipcRenderer.removeListener(IpcChannels.windowFullScreenChanged, listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);
