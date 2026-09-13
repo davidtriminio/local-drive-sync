@@ -1,0 +1,21 @@
+{
+  "Instagram": {
+    "sigla": "ig",
+    "formats": {
+      "Feed Square": "1080x1080",
+      "Feed Portrait": "1080x1350",
+      "Story": "1080x1920",
+      "Profile": "720x720",
+      "Reel Cover": "1080x1920"
+    }
+  },
+  "Facebook": {
+    "sigla": "fb",
+    "formats": {
+      "Feed": "1200x1200",
+      "Story": "1080x1920",
+      "Cover": "820x312",
+      "Event": "1336x700"
+    }
+  }
+}
