@@ -23,6 +23,9 @@ export const IpcChannels = {
   historyDetail: 'history:detail',
   trashList: 'trash:list',
   trashRestore: 'trash:restore',
+  clientsList: 'clients:list',
+  platformsList: 'platforms:list',
+  projectCreate: 'project:create',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -183,6 +186,74 @@ export interface AppSettings {
   copyConcurrency: number;
 }
 
+// --- Creador de proyectos gráficos ---
+
+/** Plataforma con su sigla y formatos (dimensiones) disponibles. */
+export interface Platform {
+  name: string;
+  sigla: string;
+  formats: Record<string, string>;
+}
+
+/** Un proyecto registrado en el historial de un cliente. */
+export interface ClientProject {
+  /** Nombre saneado del proyecto (minúsculas, guiones bajos). */
+  name: string;
+  /** Últimas carpetas creadas para este proyecto (nombre de carpeta). */
+  folders: string[];
+}
+
+/** Cliente persistido y sus proyectos. */
+export interface Client {
+  /** Nombre saneado del cliente, sirve como identificador. */
+  name: string;
+  projects: ClientProject[];
+}
+
+/** Petición para crear un proyecto gráfico. */
+export interface CreateProjectRequest {
+  client: string;
+  project: string;
+  /** Carpeta base donde crear el proyecto. */
+  basePath: string;
+  /** Tipos de archivo plantilla a copiar. */
+  fileTypes: ('psd' | 'ai')[];
+  /** Nombres de plataformas seleccionadas (ej. "Instagram"). */
+  platforms: string[];
+  /** Subcarpetas a crear; si se omite, se crean todas. */
+  subfolders?: string[];
+  /** Si true, procede aunque exista un duplicado en el mismo mes. */
+  confirmDuplicate?: boolean;
+}
+
+/** Resultado de crear un proyecto. */
+export interface CreateProjectResult {
+  status: 'created' | 'duplicate';
+  /** Nombre de la carpeta creada (solo si status === 'created'). */
+  folderName?: string;
+  /** Ruta absoluta creada (solo si status === 'created'). */
+  projectPath?: string;
+  /** Entradas del log de creación (solo si status === 'created'). */
+  log?: string[];
+  /** Carpeta previa del mismo mes que dispara el aviso (status === 'duplicate'). */
+  existingFolder?: string;
+}
+
+/** Subcarpetas por defecto del árbol de proyecto. */
+export const DEFAULT_SUBFOLDERS: readonly string[] = [
+  '01_brief',
+  '02_references',
+  '03_resources/fonts',
+  '03_resources/images',
+  '03_resources/icons',
+  '04_workfiles/psd',
+  '04_workfiles/ai',
+  '04_workfiles/figma',
+  '05_exports/print',
+  '05_exports/web',
+  '06_archive',
+] as const;
+
 /** Superficie expuesta al renderer vía contextBridge (window.api). */
 export interface Api {
   getAppVersion(): Promise<string>;
@@ -202,6 +273,12 @@ export interface Api {
   historyDetail(runId: string): Promise<RunDetail | null>;
   listTrash(): Promise<TrashEntry[]>;
   restoreTrash(trashId: string): Promise<void>;
+  /** Clientes registrados con su historial de proyectos. */
+  listClients(): Promise<Client[]>;
+  /** Catálogo de plataformas y sus formatos. */
+  listPlatforms(): Promise<Platform[]>;
+  /** Crea un proyecto; puede devolver un aviso de duplicado. */
+  createProject(req: CreateProjectRequest): Promise<CreateProjectResult>;
   /** Suscripción a progreso; devuelve función para desuscribir. */
   onSyncProgress(cb: (p: SyncProgress) => void): () => void;
   onSyncDone(cb: (s: RunSummary) => void): () => void;
