@@ -26,6 +26,7 @@ export const IpcChannels = {
   clientsList: 'clients:list',
   platformsList: 'platforms:list',
   projectCreate: 'project:create',
+  creatorPrefsGet: 'creator:prefsGet',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -210,6 +211,15 @@ export interface Client {
   projects: ClientProject[];
 }
 
+/** Última configuración usada en el creador; se restaura al abrirlo. */
+export interface CreatorPrefs {
+  basePath: string;
+  fileTypes: ('psd' | 'ai')[];
+  platforms: string[];
+  subfolders: string[];
+  lastClient: string;
+}
+
 /** Petición para crear un proyecto gráfico. */
 export interface CreateProjectRequest {
   client: string;
@@ -279,6 +289,8 @@ export interface Api {
   listPlatforms(): Promise<Platform[]>;
   /** Crea un proyecto; puede devolver un aviso de duplicado. */
   createProject(req: CreateProjectRequest): Promise<CreateProjectResult>;
+  /** Última configuración usada en el creador. */
+  getCreatorPrefs(): Promise<CreatorPrefs>;
   /** Suscripción a progreso; devuelve función para desuscribir. */
   onSyncProgress(cb: (p: SyncProgress) => void): () => void;
   onSyncDone(cb: (s: RunSummary) => void): () => void;

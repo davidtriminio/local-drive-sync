@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type {
   AppSettings,
   Client,
+  CreatorPrefs,
   Mapping,
   RunDetail,
   RunSummary,
@@ -17,6 +18,8 @@ interface Database {
   trash: TrashEntry[];
   /** Clientes del creador de proyectos, indexados por nombre saneado. */
   clients: Client[];
+  /** Última configuración usada en el creador. */
+  creatorPrefs: CreatorPrefs;
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
   index: Record<string, Record<string, IndexEntry>>;
 }
@@ -27,6 +30,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   copyConcurrency: 3,
 };
 
+const DEFAULT_CREATOR_PREFS: CreatorPrefs = {
+  basePath: '',
+  fileTypes: ['psd'],
+  platforms: [],
+  subfolders: [],
+  lastClient: '',
+};
+
 function emptyDb(): Database {
   return {
     mappings: [],
@@ -34,6 +45,7 @@ function emptyDb(): Database {
     runs: [],
     trash: [],
     clients: [],
+    creatorPrefs: { ...DEFAULT_CREATOR_PREFS },
     index: {},
   };
 }
@@ -58,7 +70,12 @@ export class Repository {
     try {
       const raw = fs.readFileSync(this.file, 'utf-8');
       const parsed = JSON.parse(raw) as Partial<Database>;
-      return { ...emptyDb(), ...parsed, settings: { ...DEFAULT_SETTINGS, ...parsed.settings } };
+      return {
+        ...emptyDb(),
+        ...parsed,
+        settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
+        creatorPrefs: { ...DEFAULT_CREATOR_PREFS, ...parsed.creatorPrefs },
+      };
     } catch {
       return emptyDb();
     }
@@ -200,6 +217,17 @@ export class Repository {
       }
     }
     this.persist();
+  }
+
+  // --- Preferencias del creador ---
+  getCreatorPrefs(): CreatorPrefs {
+    return { ...this.db.creatorPrefs };
+  }
+
+  setCreatorPrefs(prefs: CreatorPrefs): CreatorPrefs {
+    this.db.creatorPrefs = { ...prefs };
+    this.persist();
+    return this.getCreatorPrefs();
   }
 
   // --- Papelera ---

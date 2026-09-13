@@ -46,6 +46,7 @@ const api: Api = {
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),
+  getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
   onSyncProgress: (cb: (p: SyncProgress) => void) => {
     const listener = (_e: IpcRendererEvent, payload: SyncProgress): void =>
       cb(payload);

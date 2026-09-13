@@ -150,7 +150,17 @@ export function registerIpcHandlers(ctx: IpcContext): void {
         sanitizeName(req.project),
         result.folderName,
       );
+      // Recuerda la configuración para el próximo proyecto.
+      repo.setCreatorPrefs({
+        basePath: req.basePath,
+        fileTypes: req.fileTypes,
+        platforms: req.platforms,
+        subfolders: req.subfolders ?? [],
+        lastClient: sanitizeName(req.client),
+      });
     }
     return result;
   });
+
+  ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());
 }
