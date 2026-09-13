@@ -2,13 +2,14 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
+import { IconPickerComponent } from '../shared/icon-picker.component';
 import type { MonthFormat } from '../../../shared/ipc-contract';
 
 /** Alta/edición de un mapeo local -> Drive. */
 @Component({
   selector: 'app-mapping-editor',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconPickerComponent],
   template: `
     <section class="mx-auto max-w-2xl p-8">
       <h1 class="mb-1 text-2xl font-semibold">
@@ -27,6 +28,11 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
             class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
             placeholder="Cliente 1"
           />
+        </div>
+
+        <div>
+          <label class="mb-2 block text-sm text-slate-300">Icono</label>
+          <app-icon-picker [value]="icon" (valueChange)="icon = $event" />
         </div>
 
         <div>
@@ -151,6 +157,7 @@ export class MappingEditorComponent {
 
   protected id: string | undefined;
   protected name = '';
+  protected icon = 'store';
   protected localPattern = '';
   protected drivePattern = '';
   protected monthFormat: MonthFormat = 'Mes-Año';
@@ -172,6 +179,7 @@ export class MappingEditorComponent {
     this.editing.set(true);
     this.id = mapping.id;
     this.name = mapping.name;
+    this.icon = mapping.icon ?? 'store';
     this.localPattern = mapping.localPattern;
     this.drivePattern = mapping.drivePattern;
     this.monthFormat = mapping.monthFormat;
@@ -206,6 +214,7 @@ export class MappingEditorComponent {
     await this.ipc.saveMapping({
       id: this.id,
       name: this.name.trim(),
+      icon: this.icon,
       localPattern: this.localPattern.trim(),
       drivePattern: this.drivePattern.trim(),
       monthFormat: this.monthFormat,
