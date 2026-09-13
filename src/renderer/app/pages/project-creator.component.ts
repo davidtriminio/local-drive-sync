@@ -266,58 +266,6 @@ import {
       </div>
     </section>
   `,
-  styles: [
-    `
-      .btn-primary {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        border-radius: 0.75rem;
-        padding: 0.625rem 1.25rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: rgb(2 6 23);
-        background-image: linear-gradient(
-          to bottom right,
-          rgb(52 211 153),
-          rgb(13 148 136)
-        );
-        box-shadow: 0 10px 25px -10px rgba(16, 185, 129, 0.6);
-        transition: filter 0.15s;
-      }
-      .btn-primary:hover {
-        filter: brightness(1.08);
-      }
-      .btn-primary:disabled {
-        opacity: 0.5;
-      }
-      .btn-ghost {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        border-radius: 0.75rem;
-        padding: 0.5rem 0.875rem;
-        font-size: 0.8125rem;
-        color: rgb(203 213 225);
-        background: rgba(255, 255, 255, 0.06);
-        transition: background 0.15s;
-      }
-      .btn-ghost:hover {
-        background: rgba(255, 255, 255, 0.12);
-      }
-      .btn-warn {
-        border-radius: 0.75rem;
-        padding: 0.5rem 0.875rem;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: rgb(2 6 23);
-        background: rgb(251 191 36);
-      }
-      .btn-warn:hover {
-        background: rgb(252 211 77);
-      }
-    `,
-  ],
 })
 export class ProjectCreatorComponent {
   private readonly ipc = inject(IpcService);
