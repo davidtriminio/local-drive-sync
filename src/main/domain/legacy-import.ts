@@ -37,7 +37,7 @@ export function importLegacyClients(historyDir: string): Client[] {
         name: sanitizeName(p),
         folders: [],
       }));
-      clients.push({ name, icon: 'user', projects });
+      clients.push({ name, icon: 'user', color: '#34d399', projects });
     } catch {
       // Ignora ficheros corruptos; el resto se importa igual.
     }

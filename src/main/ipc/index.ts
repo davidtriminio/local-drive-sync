@@ -148,6 +148,14 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     },
   );
 
+  ipcMain.handle(
+    IpcChannels.clientsSetColor,
+    (_e, name: string, color: string) => {
+      repo.setClientColor(sanitizeName(name), color);
+      return repo.listClients();
+    },
+  );
+
   ipcMain.handle(IpcChannels.platformsList, () =>
     ProjectCreator.loadPlatforms(platformsFile()),
   );
@@ -160,6 +168,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
         sanitizeName(req.project),
         result.folderName,
         req.clientIcon,
+        req.clientColor,
       );
       // Recuerda la configuración para el próximo proyecto.
       repo.setCreatorPrefs({
