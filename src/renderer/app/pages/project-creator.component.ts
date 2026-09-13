@@ -8,8 +8,14 @@ import { badgeStyle, chipStyle } from '../shared/colors';
 import {
   DEFAULT_SUBFOLDERS,
   type Client,
+  type Mapping,
   type Platform,
 } from '../../../shared/ipc-contract';
+
+interface Appearance {
+  icon: string;
+  color: string;
+}
 
 /** Creador de proyectos gráficos: cliente + proyecto -> estructura + PSD base. */
 @Component({
@@ -48,9 +54,9 @@ import {
               <button
                 (click)="selectClient(c)"
                 class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-transform hover:scale-[1.03]"
-                [style]="badge(c.color, isActive(c.name))"
+                [style]="badge(eff(c).color, isActive(c.name))"
               >
-                <app-icon [name]="c.icon || 'user'" [size]="14" />
+                <app-icon [name]="eff(c).icon" [size]="14" />
                 <span>{{ c.name.replaceAll('_', ' ') }}</span>
                 <span class="rounded-full bg-black/20 px-1.5 text-[10px] leading-4">
                   {{ c.projects.length }}
@@ -100,15 +106,25 @@ import {
               <app-icon name="user" [size]="16" /> Cliente
             </label>
             <div class="flex gap-2">
-              <button
-                type="button"
-                (click)="showIconPicker.set(!showIconPicker())"
-                title="Icono y color del cliente"
-                class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl transition-transform hover:scale-105"
-                [style]="chip(clientColor)"
-              >
-                <app-icon [name]="clientIcon" [size]="18" />
-              </button>
+              @if (mappingMatch()) {
+                <div
+                  class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl"
+                  [style]="chip(clientColor)"
+                  title="Icono y color heredados del mapeo"
+                >
+                  <app-icon [name]="clientIcon" [size]="18" />
+                </div>
+              } @else {
+                <button
+                  type="button"
+                  (click)="showIconPicker.set(!showIconPicker())"
+                  title="Icono y color del cliente"
+                  class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl transition-transform hover:scale-105"
+                  [style]="chip(clientColor)"
+                >
+                  <app-icon [name]="clientIcon" [size]="18" />
+                </button>
+              }
               <input
                 [(ngModel)]="client"
                 (ngModelChange)="onClientTyped()"
@@ -122,7 +138,12 @@ import {
                 <option [value]="c.name"></option>
               }
             </datalist>
-            @if (showIconPicker()) {
+            @if (mappingMatch()) {
+              <p class="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
+                <app-icon name="layers" [size]="13" /> Icono y color heredados del
+                mapeo.
+              </p>
+            } @else if (showIconPicker()) {
               <div class="mt-2 space-y-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
                 <app-icon-picker
                   [value]="clientIcon"
@@ -300,14 +321,27 @@ export class ProjectCreatorComponent {
     void this.load();
   }
 
+  /** Apariencia (icono+color) heredada de un mapeo, por nombre saneado. */
+  private mappingStyles = new Map<string, Appearance>();
+
   private async load(): Promise<void> {
-    const [clients, platforms, prefs] = await Promise.all([
+    const [clients, platforms, prefs, mappings] = await Promise.all([
       this.ipc.listClients(),
       this.ipc.listPlatforms(),
       this.ipc.getCreatorPrefs(),
+      this.ipc.listMappings(),
     ]);
     this.clients.set(clients);
     this.platforms.set(platforms);
+
+    // Los mapeos son la fuente: su icono+color se heredan al cliente/proyecto
+    // que tenga el mismo nombre.
+    this.mappingStyles = new Map(
+      mappings.map((m: Mapping) => [
+        m.name.trim().toLowerCase().replace(/\s+/g, '_'),
+        { icon: m.icon || 'store', color: m.color || '#34d399' },
+      ]),
+    );
 
     // Restaura la última configuración usada; si falta, valores por defecto.
     this.basePath = prefs.basePath;
@@ -342,20 +376,43 @@ export class ProjectCreatorComponent {
     return this.clientKey() === name;
   }
 
+  /** Apariencia efectiva de un cliente: hereda del mapeo si existe. */
+  protected eff(c: Client): Appearance {
+    return (
+      this.mappingStyles.get(c.name) ?? {
+        icon: c.icon || 'user',
+        color: c.color || '#34d399',
+      }
+    );
+  }
+
+  /** Apariencia heredada del mapeo para el cliente escrito, o null. */
+  protected mappingMatch(): Appearance | null {
+    return this.mappingStyles.get(this.clientKey()) ?? null;
+  }
+
   protected selectClient(c: Client): void {
     this.client = c.name;
-    this.clientIcon = c.icon || 'store';
-    this.clientColor = c.color || '#34d399';
+    const a = this.eff(c);
+    this.clientIcon = a.icon;
+    this.clientColor = a.color;
     this.showIconPicker.set(false);
   }
 
-  /** Al teclear, sincroniza icono y color si el nombre coincide con un cliente. */
+  /** Al teclear, sincroniza icono y color (mapeo primero, luego cliente). */
   protected onClientTyped(): void {
     this.syncClientStyle();
   }
 
   private syncClientStyle(): void {
-    const found = this.clients().find((c) => c.name === this.clientKey());
+    const key = this.clientKey();
+    const fromMapping = this.mappingStyles.get(key);
+    if (fromMapping) {
+      this.clientIcon = fromMapping.icon;
+      this.clientColor = fromMapping.color;
+      return;
+    }
+    const found = this.clients().find((c) => c.name === key);
     if (found) {
       this.clientIcon = found.icon || 'store';
       this.clientColor = found.color || '#34d399';
