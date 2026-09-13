@@ -9,9 +9,10 @@ build/
 *.exe
 *.msi
 
-# Electron / Angular cache
+# Electron / Angular cache y salidas de compilación
 .angular/
 .cache/
+out-tsc/
 
 # SQLite local / datos de la app (no deben versionarse)
 *.sqlite
