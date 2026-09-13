@@ -1,61 +1,59 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import type { MonthFormat } from '../../../shared/ipc-contract';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     <section class="mx-auto max-w-2xl p-8">
-      <h1 class="mb-6 text-2xl font-semibold">Ajustes</h1>
+      <header class="mb-8 flex items-center gap-3">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-400 to-slate-600 text-white shadow-lg shadow-slate-500/20"
+        >
+          <app-icon name="settings" [size]="24" />
+        </div>
+        <h1 class="page-title">Ajustes</h1>
+      </header>
 
-      <div class="space-y-5">
+      <div class="card space-y-5 p-6">
         <div>
-          <label class="mb-1 block text-sm text-slate-300">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">
             Exclusiones globales (una por línea)
           </label>
           <textarea
             [(ngModel)]="exclusionsText"
             rows="4"
-            class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+            class="field font-mono text-xs"
           ></textarea>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="mb-1 block text-sm text-slate-300">Formato de mes preferido</label>
-            <select
-              [(ngModel)]="monthFormat"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-            >
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Formato de mes preferido</label>
+            <select [(ngModel)]="monthFormat" class="field">
               <option value="Mes-Año">Mes-Año</option>
               <option value="MM-AAAA">MM-AAAA</option>
               <option value="AAAA-MM">AAAA-MM</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm text-slate-300">Copias en paralelo</label>
-            <input
-              type="number"
-              min="1"
-              max="8"
-              [(ngModel)]="concurrency"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-            />
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Copias en paralelo</label>
+            <input type="number" min="1" max="8" [(ngModel)]="concurrency" class="field" />
           </div>
         </div>
 
         <div class="flex items-center gap-3 pt-2">
-          <button
-            (click)="guardar()"
-            class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400"
-          >
-            Guardar ajustes
+          <button (click)="guardar()" class="btn-primary">
+            <app-icon name="check" [size]="16" /> Guardar ajustes
           </button>
           @if (saved()) {
-            <span class="text-sm text-emerald-300">Guardado ✓</span>
+            <span class="flex items-center gap-1.5 text-sm text-emerald-300">
+              <app-icon name="check" [size]="16" /> Guardado
+            </span>
           }
         </div>
       </div>
