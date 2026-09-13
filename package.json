@@ -1,0 +1,48 @@
+{
+  "name": "local-drive-sync",
+  "version": "0.1.0",
+  "description": "Sincronizador selectivo de arte final Local -> Google Drive (Electron + Angular).",
+  "author": "David Triminio <davidtriminio21@gmail.com>",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:renderer": "ng build",
+    "build": "npm run build:main && npm run build:renderer",
+    "start": "npm run build && electron .",
+    "serve:renderer": "ng serve",
+    "dev": "concurrently -k -n ng,electron -c cyan,magenta \"ng serve\" \"wait-on tcp:4200 && cross-env NODE_ENV=development electron .\"",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@angular/common": "^20.3.0",
+    "@angular/compiler": "^20.3.0",
+    "@angular/core": "^20.3.0",
+    "@angular/forms": "^20.3.0",
+    "@angular/platform-browser": "^20.3.0",
+    "@angular/router": "^20.3.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.6.0",
+    "zone.js": "~0.15.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.8.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.3.0",
+    "@angular/cli": "^20.3.0",
+    "@angular/compiler-cli": "^20.3.0",
+    "@electron/rebuild": "^3.6.0",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "tailwindcss": "^4.1.0",
+    "typescript": "~5.8.3",
+    "wait-on": "^8.0.1"
+  }
+}
