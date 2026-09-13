@@ -6,6 +6,7 @@ import {
   type Mapping,
   type MappingDraft,
   type AppSettings,
+  type CreateProjectRequest,
   type SyncPlan,
   type SyncPreviewRequest,
   type SyncProgress,
@@ -13,6 +14,12 @@ import {
 import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
+import { ProjectCreator, sanitizeName } from '../domain/project-creator';
+import { importLegacyClients } from '../domain/legacy-import';
+import { creatorAssetsDir, platformsFile } from '../resources';
+
+/** Historial de clientes del proyecto Python anterior (import de una sola vez). */
+const LEGACY_HISTORY_DIR = 'V:/graphic_design/tools/functionalApp/history';
 
 export interface IpcContext {
   getWindow: () => BrowserWindow | null;
@@ -25,6 +32,15 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   const trashRoot = path.join(ctx.dataDir, 'trash');
   const syncService = new SyncService(repo, trashRoot);
   const trashService = new TrashService(trashRoot, repo);
+  const projectCreator = new ProjectCreator(creatorAssetsDir());
+
+  // Import único de clientes heredados si el almacén está vacío.
+  if (repo.listClients().length === 0) {
+    const legacy = importLegacyClients(LEGACY_HISTORY_DIR);
+    if (legacy.length > 0) {
+      repo.mergeClients(legacy);
+    }
+  }
 
   /** Controladores de cancelación por ejecución en curso. */
   const running = new Map<string, AbortController>();
@@ -118,4 +134,23 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.trashRestore, (_e, trashId: string) =>
     trashService.restore(trashId),
   );
+
+  // --- Creador de proyectos gráficos ---
+  ipcMain.handle(IpcChannels.clientsList, () => repo.listClients());
+
+  ipcMain.handle(IpcChannels.platformsList, () =>
+    ProjectCreator.loadPlatforms(platformsFile()),
+  );
+
+  ipcMain.handle(IpcChannels.projectCreate, (_e, req: CreateProjectRequest) => {
+    const result = projectCreator.create(req);
+    if (result.status === 'created' && result.folderName) {
+      repo.recordProject(
+        sanitizeName(req.client),
+        sanitizeName(req.project),
+        result.folderName,
+      );
+    }
+    return result;
+  });
 }
