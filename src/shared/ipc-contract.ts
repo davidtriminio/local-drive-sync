@@ -28,6 +28,7 @@ export const IpcChannels = {
   projectCreate: 'project:create',
   creatorPrefsGet: 'creator:prefsGet',
   clientsSetIcon: 'clients:setIcon',
+  clientsSetColor: 'clients:setColor',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -217,6 +218,8 @@ export interface Client {
   name: string;
   /** Icono (de la librería) mostrado en los badges del creador. */
   icon: string;
+  /** Color de acento (hex) del badge del cliente. */
+  color: string;
   projects: ClientProject[];
 }
 
@@ -243,6 +246,8 @@ export interface CreateProjectRequest {
   subfolders?: string[];
   /** Icono a asignar al cliente (si es nuevo o se quiere actualizar). */
   clientIcon?: string;
+  /** Color a asignar al cliente (si es nuevo o se quiere actualizar). */
+  clientColor?: string;
   /** Si true, procede aunque exista un duplicado en el mismo mes. */
   confirmDuplicate?: boolean;
 }
@@ -298,6 +303,8 @@ export interface Api {
   listClients(): Promise<Client[]>;
   /** Asigna un icono a un cliente existente; devuelve la lista actualizada. */
   setClientIcon(name: string, icon: string): Promise<Client[]>;
+  /** Asigna un color a un cliente existente; devuelve la lista actualizada. */
+  setClientColor(name: string, color: string): Promise<Client[]>;
   /** Catálogo de plataformas y sus formatos. */
   listPlatforms(): Promise<Platform[]>;
   /** Crea un proyecto; puede devolver un aviso de duplicado. */

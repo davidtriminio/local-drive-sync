@@ -176,13 +176,24 @@ export class Repository {
     projectName: string,
     folder: string,
     icon?: string,
+    color?: string,
   ): void {
     let client = this.db.clients.find((c) => c.name === clientName);
     if (!client) {
-      client = { name: clientName, icon: icon || 'user', projects: [] };
+      client = {
+        name: clientName,
+        icon: icon || 'user',
+        color: color || '#34d399',
+        projects: [],
+      };
       this.db.clients.push(client);
-    } else if (icon) {
-      client.icon = icon;
+    } else {
+      if (icon) {
+        client.icon = icon;
+      }
+      if (color) {
+        client.color = color;
+      }
     }
     let project = client.projects.find((p) => p.name === projectName);
     if (!project) {
@@ -204,6 +215,7 @@ export class Repository {
         this.db.clients.push({
           name: inc.name,
           icon: inc.icon || 'user',
+          color: inc.color || '#34d399',
           projects: inc.projects.map((p) => ({
             name: p.name,
             folders: [...p.folders],
@@ -232,6 +244,15 @@ export class Repository {
     const client = this.db.clients.find((c) => c.name === name);
     if (client) {
       client.icon = icon;
+      this.persist();
+    }
+  }
+
+  /** Asigna un color a un cliente existente. */
+  setClientColor(name: string, color: string): void {
+    const client = this.db.clients.find((c) => c.name === name);
+    if (client) {
+      client.color = color;
       this.persist();
     }
   }

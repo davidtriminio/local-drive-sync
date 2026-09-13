@@ -79,6 +79,9 @@ export class IpcService {
   setClientIcon(name: string, icon: string): Promise<Client[]> {
     return this.api.setClientIcon(name, icon);
   }
+  setClientColor(name: string, color: string): Promise<Client[]> {
+    return this.api.setClientColor(name, color);
+  }
   listPlatforms(): Promise<Platform[]> {
     return this.api.listPlatforms();
   }

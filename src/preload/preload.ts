@@ -45,6 +45,8 @@ const api: Api = {
   listClients: () => ipcRenderer.invoke(IpcChannels.clientsList),
   setClientIcon: (name: string, icon: string) =>
     ipcRenderer.invoke(IpcChannels.clientsSetIcon, name, icon),
+  setClientColor: (name: string, color: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsSetColor, name, color),
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),
