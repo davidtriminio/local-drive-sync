@@ -53,7 +53,13 @@ import type { Mapping } from '../../../shared/ipc-contract';
               class="group rounded-2xl border border-white/5 bg-slate-900/40 p-4 transition-colors hover:border-white/10 hover:bg-slate-900/70"
             >
               <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0">
+                <div class="flex min-w-0 gap-3">
+                  <div
+                    class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-emerald-300"
+                  >
+                    <app-icon [name]="m.icon || 'store'" [size]="20" />
+                  </div>
+                  <div class="min-w-0">
                   <h2 class="truncate font-medium">{{ m.name }}</h2>
                   <p class="mt-1.5 flex items-center gap-1.5 truncate font-mono text-xs text-sky-300">
                     <app-icon name="folder" [size]="13" /> {{ m.localPattern }}
@@ -61,6 +67,7 @@ import type { Mapping } from '../../../shared/ipc-contract';
                   <p class="flex items-center gap-1.5 truncate font-mono text-xs text-amber-300">
                     <app-icon name="chevronRight" [size]="13" /> {{ m.drivePattern }}
                   </p>
+                  </div>
                 </div>
                 <div class="flex shrink-0 gap-1.5">
                   <button (click)="sincronizar(m)" class="btn-primary btn-sm">
