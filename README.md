@@ -12,7 +12,8 @@ diferencias antes de actuar.
 ## Documentación
 
 - [Especificación de requisitos y reglas de sincronización](docs/ESPECIFICACION.md)
+- [Arquitectura técnica](docs/ARQUITECTURA.md)
 
 ## Roadmap de definición
 
-Requisitos ✅ → Arquitectura → Estructura del proyecto → Diseño de UI → Implementación → Pruebas → Distribución.
+Requisitos ✅ → Arquitectura ✅ → Estructura del proyecto → Diseño de UI → Implementación → Pruebas → Distribución.
