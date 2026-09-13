@@ -26,6 +26,13 @@ export const routes: Routes = [
       import('./pages/sync-wizard.component').then((m) => m.SyncWizardComponent),
   },
   {
+    path: 'creator',
+    loadComponent: () =>
+      import('./pages/project-creator.component').then(
+        (m) => m.ProjectCreatorComponent,
+      ),
+  },
+  {
     path: 'history',
     loadComponent: () =>
       import('./pages/history.component').then((m) => m.HistoryComponent),
