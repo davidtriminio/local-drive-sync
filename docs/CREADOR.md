@@ -20,6 +20,10 @@ El cliente queda registrado para la próxima vez.
 
 ## Reglas
 
+- **Carpeta base con `{mes}`**: la ruta admite el token `{mes}`, que se
+  resuelve al mes actual en formato `Mes-Año` (p. ej. `Septiembre-2026`) al
+  crear. Así rota sola cada mes sin editarla. La ruta se guarda al instante al
+  editarla (persistencia inmediata, no solo al crear).
 - **Nombres**: se sanean a minúsculas con guiones bajos (`sanitizeName`).
 - **Sin versionado `vNN`**: el nombre no lleva sufijo de versión.
 - **Aviso de duplicado**: si el mismo cliente + proyecto ya tiene una carpeta en
