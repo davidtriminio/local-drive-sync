@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IpcService } from './services/ipc.service';
 
@@ -55,10 +55,11 @@ interface NavItem {
     </div>
   `,
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   private readonly ipc = inject(IpcService);
   protected readonly version = signal('—');
   protected readonly fullScreen = signal(false);
+  private readonly unsubFullScreen: () => void;
 
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: '🗂️', exact: true },
@@ -72,9 +73,18 @@ export class AppComponent {
       .getAppVersion()
       .then((v) => this.version.set(v))
       .catch(() => this.version.set('?'));
+
+    this.unsubFullScreen = this.ipc.onFullScreenChange((fs) =>
+      this.fullScreen.set(fs),
+    );
   }
 
-  protected async toggleFullScreen(): Promise<void> {
-    this.fullScreen.set(await this.ipc.toggleFullScreen());
+  ngOnDestroy(): void {
+    this.unsubFullScreen();
+  }
+
+  protected toggleFullScreen(): void {
+    // El estado del botón lo actualiza el evento onFullScreenChange.
+    void this.ipc.toggleFullScreen();
   }
 }
