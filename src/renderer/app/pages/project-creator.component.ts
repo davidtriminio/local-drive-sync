@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { IconPickerComponent } from '../shared/icon-picker.component';
+import { ColorPickerComponent } from '../shared/color-picker.component';
+import { badgeStyle, chipStyle } from '../shared/colors';
 import {
   DEFAULT_SUBFOLDERS,
   type Client,
@@ -13,7 +15,12 @@ import {
 @Component({
   selector: 'app-project-creator',
   standalone: true,
-  imports: [FormsModule, IconComponent, IconPickerComponent],
+  imports: [
+    FormsModule,
+    IconComponent,
+    IconPickerComponent,
+    ColorPickerComponent,
+  ],
   template: `
     <section class="mx-auto max-w-3xl p-8">
       <header class="mb-8 flex items-center gap-3">
@@ -40,10 +47,11 @@ import {
             @for (c of clients(); track c.name) {
               <button
                 (click)="selectClient(c)"
-                [class]="badgeClass(c.name)"
+                class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-transform hover:scale-[1.03]"
+                [style]="badge(c.color, isActive(c.name))"
               >
                 <app-icon [name]="c.icon || 'user'" [size]="14" />
-                <span class="capitalize">{{ c.name.replaceAll('_', ' ') }}</span>
+                <span>{{ c.name.replaceAll('_', ' ') }}</span>
                 <span class="rounded-full bg-black/20 px-1.5 text-[10px] leading-4">
                   {{ c.projects.length }}
                 </span>
@@ -83,8 +91,9 @@ import {
               <button
                 type="button"
                 (click)="showIconPicker.set(!showIconPicker())"
-                title="Icono del cliente"
-                class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white/5 text-emerald-300 transition-colors hover:bg-white/10"
+                title="Icono y color del cliente"
+                class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl transition-transform hover:scale-105"
+                [style]="chip(clientColor)"
               >
                 <app-icon [name]="clientIcon" [size]="18" />
               </button>
@@ -102,11 +111,17 @@ import {
               }
             </datalist>
             @if (showIconPicker()) {
-              <div class="mt-2 rounded-xl border border-white/10 bg-slate-950/50 p-2.5">
+              <div class="mt-2 space-y-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
                 <app-icon-picker
                   [value]="clientIcon"
                   (valueChange)="chooseClientIcon($event)"
                 />
+                <div class="border-t border-white/5 pt-3">
+                  <app-color-picker
+                    [value]="clientColor"
+                    (valueChange)="chooseClientColor($event)"
+                  />
+                </div>
               </div>
             }
           </div>
@@ -308,9 +323,13 @@ export class ProjectCreatorComponent {
   protected readonly busy = signal(false);
   protected readonly showIconPicker = signal(false);
 
+  protected readonly badge = badgeStyle;
+  protected readonly chip = chipStyle;
+
   protected basePath = '';
   protected client = '';
   protected clientIcon = 'store';
+  protected clientColor = '#34d399';
   protected project = '';
   protected psd = true;
   protected ai = false;
@@ -348,45 +367,55 @@ export class ProjectCreatorComponent {
     );
     if (prefs.lastClient) {
       this.client = prefs.lastClient;
-      this.syncClientIcon();
+      this.syncClientStyle();
     }
+  }
+
+  /** Nombre saneado del cliente escrito, para buscarlo en la lista. */
+  private clientKey(): string {
+    return this.client.trim().toLowerCase().replace(/\s+/g, '_');
+  }
+
+  protected isActive(name: string): boolean {
+    return this.clientKey() === name;
   }
 
   protected selectClient(c: Client): void {
     this.client = c.name;
     this.clientIcon = c.icon || 'store';
+    this.clientColor = c.color || '#34d399';
     this.showIconPicker.set(false);
   }
 
-  /** Al teclear, sincroniza el icono si el nombre coincide con un cliente. */
+  /** Al teclear, sincroniza icono y color si el nombre coincide con un cliente. */
   protected onClientTyped(): void {
-    this.syncClientIcon();
+    this.syncClientStyle();
   }
 
-  private syncClientIcon(): void {
-    const key = this.client.trim().toLowerCase().replace(/\s+/g, '_');
-    const found = this.clients().find((c) => c.name === key);
+  private syncClientStyle(): void {
+    const found = this.clients().find((c) => c.name === this.clientKey());
     if (found) {
       this.clientIcon = found.icon || 'store';
+      this.clientColor = found.color || '#34d399';
     }
   }
 
   /** Elige un icono; si el cliente ya existe, lo persiste al momento. */
   protected async chooseClientIcon(icon: string): Promise<void> {
     this.clientIcon = icon;
-    this.showIconPicker.set(false);
-    const key = this.client.trim().toLowerCase().replace(/\s+/g, '_');
+    const key = this.clientKey();
     if (key && this.clients().some((c) => c.name === key)) {
       this.clients.set(await this.ipc.setClientIcon(key, icon));
     }
   }
 
-  protected badgeClass(name: string): string {
-    const base =
-      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium capitalize transition-colors';
-    return this.client.trim().toLowerCase() === name
-      ? `${base} bg-emerald-500 text-slate-950`
-      : `${base} bg-white/5 text-slate-300 hover:bg-white/10`;
+  /** Elige un color; si el cliente ya existe, lo persiste al momento. */
+  protected async chooseClientColor(color: string): Promise<void> {
+    this.clientColor = color;
+    const key = this.clientKey();
+    if (key && this.clients().some((c) => c.name === key)) {
+      this.clients.set(await this.ipc.setClientColor(key, color));
+    }
   }
 
   protected toggleClass(active: boolean): string {
@@ -453,6 +482,7 @@ export class ProjectCreatorComponent {
         platforms: [...this.selectedPlatforms()],
         subfolders: [...this.selectedSubfolders()],
         clientIcon: this.clientIcon,
+        clientColor: this.clientColor,
         confirmDuplicate,
       });
 
