@@ -24,6 +24,11 @@ El cliente queda registrado para la próxima vez.
   resuelve al mes actual en formato `Mes-Año` (p. ej. `Septiembre-2026`) al
   crear. Así rota sola cada mes sin editarla. La ruta se guarda al instante al
   editarla (persistencia inmediata, no solo al crear).
+- **Icono y color heredados del mapeo**: cada cliente/mapeo tiene icono y
+  color. El **mapeo es la fuente**: si existe un mapeo con el mismo nombre que
+  el cliente, el creador hereda su icono+color (el selector del cliente se
+  oculta y se muestra el aviso «heredado del mapeo»). Sin mapeo, el cliente usa
+  el suyo, editable desde el creador.
 - **Nombres**: se sanean a minúsculas con guiones bajos (`sanitizeName`).
 - **Sin versionado `vNN`**: el nombre no lleva sufijo de versión.
 - **Aviso de duplicado**: si el mismo cliente + proyecto ya tiene una carpeta en
