@@ -3,13 +3,14 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
 import { IconPickerComponent } from '../shared/icon-picker.component';
+import { ColorPickerComponent } from '../shared/color-picker.component';
 import type { MonthFormat } from '../../../shared/ipc-contract';
 
 /** Alta/edición de un mapeo local -> Drive. */
 @Component({
   selector: 'app-mapping-editor',
   standalone: true,
-  imports: [FormsModule, IconPickerComponent],
+  imports: [FormsModule, IconPickerComponent, ColorPickerComponent],
   template: `
     <section class="mx-auto max-w-2xl p-8">
       <h1 class="mb-1 text-2xl font-semibold">
@@ -30,9 +31,15 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
           />
         </div>
 
-        <div>
-          <label class="mb-2 block text-sm text-slate-300">Icono</label>
-          <app-icon-picker [value]="icon" (valueChange)="icon = $event" />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+          <div>
+            <label class="mb-2 block text-sm text-slate-300">Icono</label>
+            <app-icon-picker [value]="icon" (valueChange)="icon = $event" />
+          </div>
+          <div>
+            <label class="mb-2 block text-sm text-slate-300">Color</label>
+            <app-color-picker [value]="color" (valueChange)="color = $event" />
+          </div>
         </div>
 
         <div>
@@ -158,6 +165,7 @@ export class MappingEditorComponent {
   protected id: string | undefined;
   protected name = '';
   protected icon = 'store';
+  protected color = '#34d399';
   protected localPattern = '';
   protected drivePattern = '';
   protected monthFormat: MonthFormat = 'Mes-Año';
@@ -180,6 +188,7 @@ export class MappingEditorComponent {
     this.id = mapping.id;
     this.name = mapping.name;
     this.icon = mapping.icon ?? 'store';
+    this.color = mapping.color ?? '#34d399';
     this.localPattern = mapping.localPattern;
     this.drivePattern = mapping.drivePattern;
     this.monthFormat = mapping.monthFormat;
@@ -215,6 +224,7 @@ export class MappingEditorComponent {
       id: this.id,
       name: this.name.trim(),
       icon: this.icon,
+      color: this.color,
       localPattern: this.localPattern.trim(),
       drivePattern: this.drivePattern.trim(),
       monthFormat: this.monthFormat,
