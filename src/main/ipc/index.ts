@@ -183,4 +183,8 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   });
 
   ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());
+
+  ipcMain.handle(IpcChannels.creatorSetBasePath, (_e, basePath: string) => {
+    repo.setCreatorBasePath(basePath);
+  });
 }

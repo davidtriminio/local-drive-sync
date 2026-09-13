@@ -72,13 +72,25 @@ import {
           <div class="flex gap-2">
             <input
               [(ngModel)]="basePath"
+              (ngModelChange)="persistBasePath()"
               class="w-full rounded-xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 font-mono text-xs text-slate-200 outline-none transition-colors focus:border-emerald-500/70"
-              placeholder="V:\\graphic_design\\projects"
+              placeholder="V:\\graphic_design\\projects\\{mes}"
             />
             <button (click)="pickBase()" class="btn-ghost shrink-0">
               <app-icon name="folder" [size]="16" /> Elegir
             </button>
           </div>
+          @if (basePath.includes('{mes}')) {
+            <p class="mt-1.5 flex items-center gap-1.5 font-mono text-xs text-emerald-300/80">
+              <app-icon name="check" [size]="13" /> {{ resolvedBasePath() }}
+            </p>
+          } @else {
+            <p class="mt-1.5 text-xs text-slate-500">
+              Usa el token
+              <code class="text-emerald-300">&#123;mes&#125;</code>
+              para que rote solo cada mes (ej. …\\{{ currentMonth }}).
+            </p>
+          }
         </div>
 
         <!-- Cliente + proyecto -->
@@ -325,6 +337,8 @@ export class ProjectCreatorComponent {
 
   protected readonly badge = badgeStyle;
   protected readonly chip = chipStyle;
+  /** Mes actual en formato "Septiembre-2026". */
+  protected readonly currentMonth = this.monthLabel();
 
   protected basePath = '';
   protected client = '';
@@ -430,7 +444,38 @@ export class ProjectCreatorComponent {
     const chosen = await this.ipc.pickFolder();
     if (chosen) {
       this.basePath = chosen;
+      this.persistBasePath();
     }
+  }
+
+  /** Guarda la carpeta base al instante (persistencia inmediata). */
+  protected persistBasePath(): void {
+    void this.ipc.setCreatorBasePath(this.basePath.trim());
+  }
+
+  /** Nombre del mes actual, ej. "Septiembre-2026". */
+  private monthLabel(): string {
+    const meses = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
+    const now = new Date();
+    return `${meses[now.getMonth()]}-${now.getFullYear()}`;
+  }
+
+  /** Vista previa de la carpeta base con {mes} ya resuelto. */
+  protected resolvedBasePath(): string {
+    return this.basePath.replace(/\{mes\}/gi, this.currentMonth);
   }
 
   protected togglePlatform(name: string): void {

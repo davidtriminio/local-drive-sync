@@ -268,6 +268,12 @@ export class Repository {
     return this.getCreatorPrefs();
   }
 
+  /** Guarda solo la carpeta base (persistencia inmediata al editarla). */
+  setCreatorBasePath(basePath: string): void {
+    this.db.creatorPrefs.basePath = basePath;
+    this.persist();
+  }
+
   // --- Papelera ---
   addTrashEntry(entry: TrashEntry): void {
     this.db.trash.unshift(entry);
