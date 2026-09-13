@@ -79,6 +79,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
       id: draft.id ?? randomUUID(),
       name: draft.name,
       icon: draft.icon ?? existing?.icon ?? 'store',
+      color: draft.color ?? existing?.color ?? '#34d399',
       localPattern: draft.localPattern,
       drivePattern: draft.drivePattern,
       monthFormat: draft.monthFormat,
