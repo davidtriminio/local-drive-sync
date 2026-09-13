@@ -5,6 +5,7 @@ import type {
   Client,
   CreateProjectRequest,
   CreateProjectResult,
+  CreatorPrefs,
   DiffResult,
   Mapping,
   MappingDraft,
@@ -80,6 +81,9 @@ export class IpcService {
   }
   createProject(req: CreateProjectRequest): Promise<CreateProjectResult> {
     return this.api.createProject(req);
+  }
+  getCreatorPrefs(): Promise<CreatorPrefs> {
+    return this.api.getCreatorPrefs();
   }
   onSyncProgress(cb: (p: SyncProgress) => void): () => void {
     return this.api.onSyncProgress(cb);
