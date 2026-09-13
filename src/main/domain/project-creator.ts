@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { MonthNormalizer } from './month-normalizer';
 import {
   DEFAULT_SUBFOLDERS,
   type CreateProjectRequest,
@@ -19,6 +20,20 @@ EXAMPLES:
 /** Convierte a minúsculas y reemplaza espacios por guiones bajos. */
 export function sanitizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+/**
+ * Resuelve el token `{mes}` de una ruta al mes actual (formato "Mes-Año",
+ * p. ej. "Septiembre-2026"). Si no hay token, devuelve la ruta sin cambios.
+ */
+export function resolveMonthToken(basePath: string): string {
+  if (!/\{mes\}/i.test(basePath)) {
+    return basePath;
+  }
+  const now = new Date();
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const month = new MonthNormalizer().render(key, 'Mes-Año');
+  return basePath.replace(/\{mes\}/gi, month);
 }
 
 /** Fecha local en formato YYYY-MM-DD. */
@@ -54,9 +69,13 @@ export class ProjectCreator {
     const date = today();
     const month = date.slice(0, 7); // YYYY-MM
 
+    // Resuelve {mes} al mes actual y asegura que la carpeta base exista.
+    const basePath = resolveMonthToken(req.basePath);
+    fs.mkdirSync(basePath, { recursive: true });
+
     // Aviso de duplicado: misma carpeta cliente_proyecto en el mismo mes.
     const duplicate = this.findMonthDuplicate(
-      req.basePath,
+      basePath,
       clientClean,
       projectClean,
       month,
@@ -66,10 +85,10 @@ export class ProjectCreator {
     }
 
     const folderName = this.resolveFolderName(
-      req.basePath,
+      basePath,
       `${clientClean}_${projectClean}_${date}`,
     );
-    const projectPath = path.join(req.basePath, folderName);
+    const projectPath = path.join(basePath, folderName);
     const log: string[] = [`CREATION LOG - ${new Date().toISOString()}`];
     log.push(`Project folder: ${folderName}`);
 
