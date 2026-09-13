@@ -43,6 +43,8 @@ const api: Api = {
   restoreTrash: (trashId: string) =>
     ipcRenderer.invoke(IpcChannels.trashRestore, trashId),
   listClients: () => ipcRenderer.invoke(IpcChannels.clientsList),
+  setClientIcon: (name: string, icon: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsSetIcon, name, icon),
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),

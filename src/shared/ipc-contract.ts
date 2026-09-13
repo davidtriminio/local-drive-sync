@@ -27,6 +27,7 @@ export const IpcChannels = {
   platformsList: 'platforms:list',
   projectCreate: 'project:create',
   creatorPrefsGet: 'creator:prefsGet',
+  clientsSetIcon: 'clients:setIcon',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -211,6 +212,8 @@ export interface ClientProject {
 export interface Client {
   /** Nombre saneado del cliente, sirve como identificador. */
   name: string;
+  /** Icono (de la librería) mostrado en los badges del creador. */
+  icon: string;
   projects: ClientProject[];
 }
 
@@ -235,6 +238,8 @@ export interface CreateProjectRequest {
   platforms: string[];
   /** Subcarpetas a crear; si se omite, se crean todas. */
   subfolders?: string[];
+  /** Icono a asignar al cliente (si es nuevo o se quiere actualizar). */
+  clientIcon?: string;
   /** Si true, procede aunque exista un duplicado en el mismo mes. */
   confirmDuplicate?: boolean;
 }
@@ -288,6 +293,8 @@ export interface Api {
   restoreTrash(trashId: string): Promise<void>;
   /** Clientes registrados con su historial de proyectos. */
   listClients(): Promise<Client[]>;
+  /** Asigna un icono a un cliente existente; devuelve la lista actualizada. */
+  setClientIcon(name: string, icon: string): Promise<Client[]>;
   /** Catálogo de plataformas y sus formatos. */
   listPlatforms(): Promise<Platform[]>;
   /** Crea un proyecto; puede devolver un aviso de duplicado. */

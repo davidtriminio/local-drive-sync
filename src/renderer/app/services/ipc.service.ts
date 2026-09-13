@@ -76,6 +76,9 @@ export class IpcService {
   listClients(): Promise<Client[]> {
     return this.api.listClients();
   }
+  setClientIcon(name: string, icon: string): Promise<Client[]> {
+    return this.api.setClientIcon(name, icon);
+  }
   listPlatforms(): Promise<Platform[]> {
     return this.api.listPlatforms();
   }
