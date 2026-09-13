@@ -1,0 +1,37 @@
+# Dependencias
+node_modules/
+
+# Build / distribución
+dist/
+out/
+release/
+build/
+*.exe
+*.msi
+
+# Electron / Angular cache
+.angular/
+.cache/
+
+# SQLite local / datos de la app (no deben versionarse)
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Entorno
+.env
+.env.*
+
+# Sistema operativo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editores / IDE
+.vscode/
+.idea/
+*.swp
