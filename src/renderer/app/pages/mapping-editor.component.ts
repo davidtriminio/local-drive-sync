@@ -2,7 +2,6 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
-import { templatizeMonth } from '../shared/format.util';
 import type { MonthFormat } from '../../../shared/ipc-contract';
 
 /** Alta/edición de un mapeo local -> Drive. */
@@ -190,11 +189,12 @@ export class MappingEditorComponent {
     if (!chosen) {
       return;
     }
-    const templated = templatizeMonth(chosen);
+    // Se inserta la ruta tal cual. Para que rote por mes, el usuario sustituye
+    // manualmente el segmento del mes por {mes}; el indicador * avisa si falta.
     if (side === 'local') {
-      this.localPattern = templated;
+      this.localPattern = chosen;
     } else {
-      this.drivePattern = templated;
+      this.drivePattern = chosen;
     }
   }
 
