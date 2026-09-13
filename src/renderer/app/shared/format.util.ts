@@ -56,6 +56,15 @@ function looksLikeMonth(segment: string): boolean {
   }
   const monthNames =
     /(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|ene|feb|mar|abr|jun|jul|ago|sep|set|oct|nov|dic)/;
+  // Nombre de mes expl\u00edcito => seguro.
+  if (monthNames.test(s)) {
+    return true;
+  }
+  // Solo-num\u00e9rico (d\u00edgitos y separadores, sin otras letras) con un mes 1-12.
+  const onlyDigitsAndSeparators = /^[0-9\s._-]+$/.test(s);
   const withoutYear = s.replace(/(19|20)\d{2}/, ' ');
-  return monthNames.test(s) || /\b(0?[1-9]|1[0-2])\b/.test(withoutYear);
+  return (
+    onlyDigitsAndSeparators &&
+    /(?:^|[^0-9])(0?[1-9]|1[0-2])(?:[^0-9]|$)/.test(withoutYear)
+  );
 }

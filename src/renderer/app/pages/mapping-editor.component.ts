@@ -31,11 +31,18 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
         </div>
 
         <div>
-          <label class="mb-1 block text-sm text-slate-300">Carpeta local (origen)</label>
+          <label class="mb-1 block text-sm text-slate-300">
+            Carpeta local (origen)
+            @if (!conforms(localPattern)) {
+              <span class="text-amber-400" title="No incluye {mes}">*</span>
+            }
+          </label>
           <div class="flex gap-2">
             <input
               [(ngModel)]="localPattern"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              class="w-full rounded-lg border bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              [class.border-slate-700]="conforms(localPattern)"
+              [class.border-amber-500]="!conforms(localPattern)"
               placeholder="D:\\Exports\\{mes}\\Cliente 1"
             />
             <button
@@ -45,14 +52,27 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (!conforms(localPattern) && localPattern) {
+            <p class="mt-1 text-xs text-amber-400">
+              * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
+              mes automáticamente.
+            </p>
+          }
         </div>
 
         <div>
-          <label class="mb-1 block text-sm text-slate-300">Carpeta Drive (destino)</label>
+          <label class="mb-1 block text-sm text-slate-300">
+            Carpeta Drive (destino)
+            @if (!conforms(drivePattern)) {
+              <span class="text-amber-400" title="No incluye {mes}">*</span>
+            }
+          </label>
           <div class="flex gap-2">
             <input
               [(ngModel)]="drivePattern"
-              class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              class="w-full rounded-lg border bg-slate-800 px-3 py-2 font-mono text-xs outline-none focus:border-emerald-500"
+              [class.border-slate-700]="conforms(drivePattern)"
+              [class.border-amber-500]="!conforms(drivePattern)"
               placeholder="G:\\Mi unidad\\Cliente 1\\artes\\{mes}"
             />
             <button
@@ -62,6 +82,12 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (!conforms(drivePattern) && drivePattern) {
+            <p class="mt-1 text-xs text-amber-400">
+              * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
+              mes automáticamente.
+            </p>
+          }
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -152,6 +178,11 @@ export class MappingEditorComponent {
     this.monthFormat = mapping.monthFormat;
     this.createMissing = mapping.createMissing;
     this.exclusionsText = mapping.exclusions.join('\n');
+  }
+
+  /** true si la ruta incluye el token {mes} (rotará por mes automáticamente). */
+  protected conforms(pattern: string): boolean {
+    return /\{mes\}/i.test(pattern);
   }
 
   protected async pick(side: 'local' | 'drive'): Promise<void> {
