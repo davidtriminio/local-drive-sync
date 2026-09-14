@@ -249,6 +249,8 @@ export interface CreateProjectRequest {
   platforms: string[];
   /** Subcarpetas a crear; si se omite, se crean todas. */
   subfolders?: string[];
+  /** Fecha (AAAA-MM-DD) para el nombre de carpeta; por defecto hoy. */
+  date?: string;
   /** Icono a asignar al cliente (si es nuevo o se quiere actualizar). */
   clientIcon?: string;
   /** Color a asignar al cliente (si es nuevo o se quiere actualizar). */
@@ -286,6 +288,12 @@ export interface EventItem {
   month: number;
   /** Día del mes (1-31); ignorar si `variable` es true. */
   day: number;
+  /**
+   * Fecha completa (AAAA-MM-DD) de un evento personalizado con fecha fija; se
+   * usa en el nombre de las carpetas/archivos del lote. Vacío en los feriados
+   * integrados (recurrentes), donde el lote deriva la fecha del año en curso.
+   */
+  date?: string;
   /** true si la fecha exacta varía cada año (p. ej. 2.º domingo de mayo). */
   variable: boolean;
   /** Nota de fecha para eventos variables (p. ej. «2.º domingo de mayo»). */
@@ -304,6 +312,8 @@ export interface EventDraft {
   name: string;
   month: number;
   day: number;
+  /** Fecha completa (AAAA-MM-DD) para eventos personalizados con fecha fija. */
+  date?: string;
   variable?: boolean;
   note?: string;
   icon?: string;
@@ -322,6 +332,8 @@ export interface CreateBatchRequest {
   subfolders?: string[];
   /** Evento asociado (solo informativo/preselección). */
   eventId?: string;
+  /** Fecha (AAAA-MM-DD) del evento para el nombre de carpeta; por defecto hoy. */
+  date?: string;
   /** Si true, procede aunque existan duplicados del mismo mes. */
   confirmDuplicate?: boolean;
 }
