@@ -34,6 +34,9 @@ export const IpcChannels = {
   eventsSave: 'events:save',
   eventsDelete: 'events:delete',
   projectCreateBatch: 'project:createBatch',
+  notificationsCheck: 'notifications:check',
+  notificationsMarkRead: 'notifications:markRead',
+  notificationsMarkAllRead: 'notifications:markAllRead',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -272,6 +275,34 @@ export interface CreateProjectResult {
   existingFolder?: string;
 }
 
+// --- Notificaciones de sincronización ---
+
+/**
+ * Aviso de que un mapeo tiene archivos pendientes de sincronizar (nuevos o
+ * modificados en local respecto a Drive) en el mes actual.
+ */
+export interface SyncNotification {
+  mappingId: string;
+  mappingName: string;
+  icon: string;
+  color: string;
+  monthKey: string;
+  newCount: number;
+  modifiedCount: number;
+  /** Muestra de rutas pendientes (limitada). */
+  sampleFiles: string[];
+  /** Firma del conjunto pendiente; cambia si aparecen archivos nuevos. */
+  signature: string;
+  /** true si la firma difiere de la última que el usuario marcó como leída. */
+  unread: boolean;
+}
+
+export interface NotificationsResult {
+  notifications: SyncNotification[];
+  /** Número de notificaciones no leídas. */
+  unreadCount: number;
+}
+
 // --- Eventos y feriados ---
 
 /**
@@ -405,6 +436,15 @@ export interface Api {
   saveEvent(draft: EventDraft): Promise<EventItem[]>;
   /** Elimina un evento personalizado; devuelve la lista actualizada. */
   deleteEvent(id: string): Promise<EventItem[]>;
+  /** Revisa los mapeos y devuelve los que tienen pendientes en el mes actual. */
+  checkNotifications(): Promise<NotificationsResult>;
+  /** Marca como leída la notificación de un mapeo (por su firma actual). */
+  markNotificationRead(
+    mappingId: string,
+    signature: string,
+  ): Promise<NotificationsResult>;
+  /** Marca todas las notificaciones actuales como leídas. */
+  markAllNotificationsRead(): Promise<NotificationsResult>;
   /** Última configuración usada en el creador. */
   getCreatorPrefs(): Promise<CreatorPrefs>;
   /** Guarda al instante la carpeta base (admite el token {mes}). */

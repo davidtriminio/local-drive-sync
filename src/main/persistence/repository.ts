@@ -23,6 +23,8 @@ interface Database {
   events: EventItem[];
   /** Última configuración usada en el creador. */
   creatorPrefs: CreatorPrefs;
+  /** Firma del conjunto pendiente ya leído, por mappingId. */
+  notifAcks: Record<string, string>;
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
   index: Record<string, Record<string, IndexEntry>>;
 }
@@ -50,6 +52,7 @@ function emptyDb(): Database {
     clients: [],
     events: [],
     creatorPrefs: { ...DEFAULT_CREATOR_PREFS },
+    notifAcks: {},
     index: {},
   };
 }
@@ -281,6 +284,18 @@ export class Repository {
   /** Elimina un evento por id (personalizado o el override de uno integrado). */
   deleteEvent(id: string): void {
     this.db.events = this.db.events.filter((e) => e.id !== id);
+    this.persist();
+  }
+
+  // --- Firmas de notificaciones leídas ---
+  /** Firma del último conjunto pendiente marcado como leído para un mapeo. */
+  getNotifAck(mappingId: string): string | undefined {
+    return this.db.notifAcks[mappingId];
+  }
+
+  /** Guarda la firma leída de un mapeo. */
+  setNotifAck(mappingId: string, signature: string): void {
+    this.db.notifAcks[mappingId] = signature;
     this.persist();
   }
 
