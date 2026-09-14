@@ -38,6 +38,13 @@ export const routes: Routes = [
       import('./pages/events.component').then((m) => m.EventsComponent),
   },
   {
+    path: 'notifications',
+    loadComponent: () =>
+      import('./pages/notifications.component').then(
+        (m) => m.NotificationsComponent,
+      ),
+  },
+  {
     path: 'history',
     loadComponent: () =>
       import('./pages/history.component').then((m) => m.HistoryComponent),

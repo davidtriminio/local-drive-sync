@@ -1,6 +1,7 @@
 import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IpcService } from './services/ipc.service';
+import { NotificationsStore } from './services/notifications.store';
 import { IconComponent } from './shared/icon.component';
 
 interface NavItem {
@@ -45,6 +46,13 @@ interface NavItem {
               ></span>
               <app-icon [name]="item.icon" [size]="18" />
               <span class="font-medium">{{ item.label }}</span>
+              @if (item.path === 'notifications' && notifications.unreadCount() > 0) {
+                <span
+                  class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-semibold text-slate-950"
+                >
+                  {{ notifications.unreadCount() }}
+                </span>
+              }
             </a>
           }
         </nav>
@@ -81,14 +89,22 @@ interface NavItem {
 })
 export class AppComponent implements OnDestroy {
   private readonly ipc = inject(IpcService);
+  protected readonly notifications = inject(NotificationsStore);
   protected readonly version = signal('—');
   protected readonly fullScreen = signal(false);
   private readonly unsubFullScreen: () => void;
+  private readonly unsubSyncDone: () => void;
 
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: 'layers', exact: true },
     { path: 'creator', label: 'Proyectos', icon: 'palette', exact: false },
     { path: 'events', label: 'Eventos', icon: 'calendar', exact: false },
+    {
+      path: 'notifications',
+      label: 'Notificaciones',
+      icon: 'bell',
+      exact: false,
+    },
     { path: 'history', label: 'Historial', icon: 'clock', exact: false },
     { path: 'trash', label: 'Papelera', icon: 'trash', exact: false },
     { path: 'settings', label: 'Ajustes', icon: 'settings', exact: false },
@@ -103,10 +119,17 @@ export class AppComponent implements OnDestroy {
     this.unsubFullScreen = this.ipc.onFullScreenChange((fs) =>
       this.fullScreen.set(fs),
     );
+
+    // Revisa pendientes al arrancar y tras cada sincronización terminada.
+    void this.notifications.refresh();
+    this.unsubSyncDone = this.ipc.onSyncDone(() => {
+      void this.notifications.refresh();
+    });
   }
 
   ngOnDestroy(): void {
     this.unsubFullScreen();
+    this.unsubSyncDone();
   }
 
   protected toggleFullScreen(): void {
