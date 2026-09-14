@@ -20,6 +20,7 @@ import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ProjectCreator, sanitizeName } from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
+import { checkNotifications } from '../domain/notifications';
 import { importLegacyClients } from '../domain/legacy-import';
 import { creatorAssetsDir, platformsFile } from '../resources';
 
@@ -273,6 +274,27 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.eventsDelete, (_e, id: string) => {
     repo.deleteEvent(id);
     return mergeHondurasEvents(repo.listStoredEvents());
+  });
+
+  // --- Notificaciones de sincronización ---
+  ipcMain.handle(IpcChannels.notificationsCheck, () =>
+    checkNotifications(repo, syncService),
+  );
+
+  ipcMain.handle(
+    IpcChannels.notificationsMarkRead,
+    (_e, mappingId: string, signature: string) => {
+      repo.setNotifAck(mappingId, signature);
+      return checkNotifications(repo, syncService);
+    },
+  );
+
+  ipcMain.handle(IpcChannels.notificationsMarkAllRead, () => {
+    const result = checkNotifications(repo, syncService);
+    for (const n of result.notifications) {
+      repo.setNotifAck(n.mappingId, n.signature);
+    }
+    return checkNotifications(repo, syncService);
   });
 
   ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());

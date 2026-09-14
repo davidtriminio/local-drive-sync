@@ -13,6 +13,7 @@ import type {
   EventItem,
   Mapping,
   MappingDraft,
+  NotificationsResult,
   Platform,
   RunDetail,
   RunSummary,
@@ -103,6 +104,18 @@ export class IpcService {
   }
   deleteEvent(id: string): Promise<EventItem[]> {
     return this.api.deleteEvent(id);
+  }
+  checkNotifications(): Promise<NotificationsResult> {
+    return this.api.checkNotifications();
+  }
+  markNotificationRead(
+    mappingId: string,
+    signature: string,
+  ): Promise<NotificationsResult> {
+    return this.api.markNotificationRead(mappingId, signature);
+  }
+  markAllNotificationsRead(): Promise<NotificationsResult> {
+    return this.api.markAllNotificationsRead();
   }
   getCreatorPrefs(): Promise<CreatorPrefs> {
     return this.api.getCreatorPrefs();

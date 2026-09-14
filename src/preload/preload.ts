@@ -58,6 +58,11 @@ const api: Api = {
   saveEvent: (draft: EventDraft) =>
     ipcRenderer.invoke(IpcChannels.eventsSave, draft),
   deleteEvent: (id: string) => ipcRenderer.invoke(IpcChannels.eventsDelete, id),
+  checkNotifications: () => ipcRenderer.invoke(IpcChannels.notificationsCheck),
+  markNotificationRead: (mappingId: string, signature: string) =>
+    ipcRenderer.invoke(IpcChannels.notificationsMarkRead, mappingId, signature),
+  markAllNotificationsRead: () =>
+    ipcRenderer.invoke(IpcChannels.notificationsMarkAllRead),
   getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
   setCreatorBasePath: (basePath: string) =>
     ipcRenderer.invoke(IpcChannels.creatorSetBasePath, basePath),
