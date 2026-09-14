@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
@@ -7,7 +7,9 @@ import { ColorPickerComponent } from '../shared/color-picker.component';
 import { badgeStyle, chipStyle } from '../shared/colors';
 import {
   DEFAULT_SUBFOLDERS,
+  type BatchClientResult,
   type Client,
+  type EventItem,
   type Mapping,
   type Platform,
 } from '../../../shared/ipc-contract';
@@ -43,8 +45,30 @@ interface Appearance {
         </div>
       </header>
 
-      <!-- Acceso rápido: badges de cliente -->
-      @if (clients().length > 0) {
+      <!-- Evento (opcional): activa el modo lote para varios clientes -->
+      @if (events().length > 0) {
+        <div class="mb-6">
+          <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
+            <app-icon name="calendar" [size]="16" /> Evento
+            <span class="text-slate-500">(crea el arte para varios clientes)</span>
+          </label>
+          <select
+            [ngModel]="selectedEventId()"
+            (ngModelChange)="onEventChange($event)"
+            class="field"
+          >
+            <option value="">Sin evento — proyecto individual</option>
+            @for (e of events(); track e.id) {
+              <option [value]="e.id">
+                {{ e.name }}{{ e.variable ? '' : ' · ' + e.day + '/' + e.month }}
+              </option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Acceso rápido: badges de cliente (solo modo individual) -->
+      @if (!eventMode() && clients().length > 0) {
         <div class="mb-6">
           <div class="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
             <app-icon name="user" [size]="14" /> Clientes
@@ -99,8 +123,42 @@ interface Appearance {
           }
         </div>
 
+        <!-- Clientes del evento (modo lote) -->
+        @if (eventMode()) {
+          <div>
+            <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
+              <app-icon name="user" [size]="16" /> Clientes del evento
+              <span class="text-slate-500">
+                ({{ batchClients().size }} seleccionados)
+              </span>
+            </label>
+            @if (clients().length === 0) {
+              <p class="text-xs text-slate-500">No hay clientes registrados.</p>
+            } @else {
+              <div class="flex flex-wrap gap-2">
+                @for (c of clients(); track c.name) {
+                  <button
+                    type="button"
+                    (click)="toggleBatchClient(c.name)"
+                    class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-transform hover:scale-[1.03]"
+                    [style]="badge(eff(c).color, batchClients().has(c.name))"
+                  >
+                    @if (batchClients().has(c.name)) {
+                      <app-icon name="check" [size]="13" />
+                    } @else {
+                      <app-icon [name]="eff(c).icon" [size]="14" />
+                    }
+                    <span>{{ c.name.replaceAll('_', ' ') }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <!-- Cliente + proyecto -->
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          @if (!eventMode()) {
           <div>
             <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
               <app-icon name="user" [size]="16" /> Cliente
@@ -158,6 +216,7 @@ interface Appearance {
               </div>
             }
           </div>
+          }
           <div>
             <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
               <app-icon name="folder" [size]="16" /> Proyecto
@@ -278,11 +337,64 @@ interface Appearance {
           </div>
         }
 
+        <!-- Resultados del lote por cliente -->
+        @if (batchResults().length > 0) {
+          <div class="space-y-1.5 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm">
+            @for (r of batchResults(); track r.client) {
+              <div class="flex items-center gap-2 capitalize">
+                @switch (r.status) {
+                  @case ('created') {
+                    <app-icon name="check" [size]="15" class="text-emerald-400" />
+                    <span class="text-emerald-200">
+                      {{ r.client.replaceAll('_', ' ') }}
+                    </span>
+                    <code class="font-mono text-xs text-slate-500 normal-case">
+                      {{ r.folderName }}
+                    </code>
+                  }
+                  @case ('duplicate') {
+                    <app-icon name="alert" [size]="15" class="text-amber-400" />
+                    <span class="text-amber-200">
+                      {{ r.client.replaceAll('_', ' ') }} — ya existe este mes
+                    </span>
+                  }
+                  @default {
+                    <app-icon name="x" [size]="15" class="text-rose-400" />
+                    <span class="text-rose-200">
+                      {{ r.client.replaceAll('_', ' ') }} — error
+                    </span>
+                  }
+                }
+              </div>
+            }
+            @if (batchHasDuplicates()) {
+              <button (click)="createBatch(true)" class="btn-warn mt-2">
+                Crear los duplicados de todos modos
+              </button>
+            }
+          </div>
+        }
+
         <div class="pt-1">
-          <button (click)="create(false)" [disabled]="busy()" class="btn-primary">
-            <app-icon name="sparkles" [size]="18" />
-            {{ busy() ? 'Creando…' : 'Crear proyecto' }}
-          </button>
+          @if (eventMode()) {
+            <button
+              (click)="createBatch(false)"
+              [disabled]="busy() || batchClients().size === 0"
+              class="btn-primary"
+            >
+              <app-icon name="sparkles" [size]="18" />
+              {{
+                busy()
+                  ? 'Creando…'
+                  : 'Crear para ' + batchClients().size + ' cliente(s)'
+              }}
+            </button>
+          } @else {
+            <button (click)="create(false)" [disabled]="busy()" class="btn-primary">
+              <app-icon name="sparkles" [size]="18" />
+              {{ busy() ? 'Creando…' : 'Crear proyecto' }}
+            </button>
+          }
         </div>
       </div>
     </section>
@@ -303,6 +415,16 @@ export class ProjectCreatorComponent {
   protected readonly duplicateFolder = signal('');
   protected readonly busy = signal(false);
   protected readonly showIconPicker = signal(false);
+
+  // Modo lote por evento.
+  protected readonly events = signal<EventItem[]>([]);
+  protected readonly selectedEventId = signal('');
+  protected readonly batchClients = signal<Set<string>>(new Set());
+  protected readonly batchResults = signal<BatchClientResult[]>([]);
+  protected readonly eventMode = computed(() => this.selectedEventId() !== '');
+  protected readonly batchHasDuplicates = computed(() =>
+    this.batchResults().some((r) => r.status === 'duplicate'),
+  );
 
   protected readonly badge = badgeStyle;
   protected readonly chip = chipStyle;
@@ -325,14 +447,16 @@ export class ProjectCreatorComponent {
   private mappingStyles = new Map<string, Appearance>();
 
   private async load(): Promise<void> {
-    const [clients, platforms, prefs, mappings] = await Promise.all([
+    const [clients, platforms, prefs, mappings, events] = await Promise.all([
       this.ipc.listClients(),
       this.ipc.listPlatforms(),
       this.ipc.getCreatorPrefs(),
       this.ipc.listMappings(),
+      this.ipc.listEvents(),
     ]);
     this.clients.set(clients);
     this.platforms.set(platforms);
+    this.events.set(events);
 
     // Los mapeos son la fuente: su icono+color se heredan al cliente/proyecto
     // que tenga el mismo nombre.
@@ -493,6 +617,88 @@ export class ProjectCreatorComponent {
     const next = new Set(this.selectedSubfolders());
     next.has(name) ? next.delete(name) : next.add(name);
     this.selectedSubfolders.set(next);
+  }
+
+  /** Al elegir un evento: preselecciona sus clientes y el nombre del arte. */
+  protected onEventChange(id: string): void {
+    this.selectedEventId.set(id);
+    this.batchResults.set([]);
+    this.error.set('');
+    this.success.set('');
+    this.duplicateFolder.set('');
+    if (!id) {
+      return;
+    }
+    const event = this.events().find((e) => e.id === id);
+    if (!event) {
+      return;
+    }
+    if (!this.project.trim()) {
+      this.project = event.name;
+    }
+    // Solo clientes que existen en el registro actual.
+    const known = new Set(this.clients().map((c) => c.name));
+    this.batchClients.set(new Set(event.clients.filter((c) => known.has(c))));
+  }
+
+  protected toggleBatchClient(name: string): void {
+    const next = new Set(this.batchClients());
+    next.has(name) ? next.delete(name) : next.add(name);
+    this.batchClients.set(next);
+  }
+
+  /** Crea el mismo proyecto (arte) para todos los clientes seleccionados. */
+  protected async createBatch(confirmDuplicate: boolean): Promise<void> {
+    this.error.set('');
+    if (!this.basePath.trim()) {
+      this.error.set('Selecciona una carpeta base.');
+      return;
+    }
+    if (!this.project.trim()) {
+      this.error.set('El nombre del arte/proyecto es obligatorio.');
+      return;
+    }
+    if (this.batchClients().size === 0) {
+      this.error.set('Selecciona al menos un cliente.');
+      return;
+    }
+    const fileTypes: ('psd' | 'ai')[] = [];
+    if (this.psd) {
+      fileTypes.push('psd');
+    }
+    if (this.ai) {
+      fileTypes.push('ai');
+    }
+    if (fileTypes.length === 0) {
+      this.error.set('Selecciona al menos un tipo de archivo (PSD o AI).');
+      return;
+    }
+
+    this.busy.set(true);
+    try {
+      const { results } = await this.ipc.createProjectBatch({
+        clients: [...this.batchClients()],
+        project: this.project.trim(),
+        basePath: this.basePath.trim(),
+        fileTypes,
+        platforms: [...this.selectedPlatforms()],
+        subfolders: [...this.selectedSubfolders()],
+        eventId: this.selectedEventId(),
+        confirmDuplicate,
+      });
+      this.batchResults.set(results);
+      // Refresca clientes/eventos para reflejar los proyectos registrados.
+      const [clients, events] = await Promise.all([
+        this.ipc.listClients(),
+        this.ipc.listEvents(),
+      ]);
+      this.clients.set(clients);
+      this.events.set(events);
+    } catch (e) {
+      this.error.set(`No se pudo crear el lote: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async create(confirmDuplicate: boolean): Promise<void> {
