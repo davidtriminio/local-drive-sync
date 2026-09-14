@@ -4,6 +4,7 @@ import type {
   AppSettings,
   Client,
   CreatorPrefs,
+  EventItem,
   Mapping,
   RunDetail,
   RunSummary,
@@ -18,6 +19,8 @@ interface Database {
   trash: TrashEntry[];
   /** Clientes del creador de proyectos, indexados por nombre saneado. */
   clients: Client[];
+  /** Eventos personalizados y overrides de los integrados (por id). */
+  events: EventItem[];
   /** Última configuración usada en el creador. */
   creatorPrefs: CreatorPrefs;
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
@@ -45,6 +48,7 @@ function emptyDb(): Database {
     runs: [],
     trash: [],
     clients: [],
+    events: [],
     creatorPrefs: { ...DEFAULT_CREATOR_PREFS },
     index: {},
   };
@@ -255,6 +259,29 @@ export class Repository {
       client.color = color;
       this.persist();
     }
+  }
+
+  // --- Eventos y feriados ---
+  /** Eventos guardados en crudo (personalizados + overrides de integrados). */
+  listStoredEvents(): EventItem[] {
+    return [...this.db.events];
+  }
+
+  /** Crea o reemplaza un evento por id. */
+  upsertEvent(event: EventItem): void {
+    const idx = this.db.events.findIndex((e) => e.id === event.id);
+    if (idx >= 0) {
+      this.db.events[idx] = event;
+    } else {
+      this.db.events.push(event);
+    }
+    this.persist();
+  }
+
+  /** Elimina un evento por id (personalizado o el override de uno integrado). */
+  deleteEvent(id: string): void {
+    this.db.events = this.db.events.filter((e) => e.id !== id);
+    this.persist();
   }
 
   // --- Preferencias del creador ---
