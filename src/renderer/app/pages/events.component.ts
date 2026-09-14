@@ -22,10 +22,19 @@ const MONTHS = [
   'Diciembre',
 ];
 
+/** Fecha de hoy en AAAA-MM-DD (para el valor por defecto del modal). */
+function todayIso(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 /**
  * Gestión de eventos y feriados: catálogo integrado de Honduras + eventos
  * personalizados. Cada evento puede asociarse a uno o varios clientes; esa
- * asociación alimenta la creación en lote del creador.
+ * asociación alimenta la creación en lote del creador. Los eventos
+ * personalizados llevan una fecha completa que el lote usa al nombrar carpetas.
  */
 @Component({
   selector: 'app-events',
@@ -52,84 +61,10 @@ const MONTHS = [
             </p>
           </div>
         </div>
-        <button (click)="toggleNew()" class="btn-ghost shrink-0">
-          <app-icon [name]="showNew() ? 'x' : 'plus'" [size]="16" />
-          {{ showNew() ? 'Cancelar' : 'Nuevo evento' }}
+        <button (click)="openNew()" class="btn-primary shrink-0">
+          <app-icon name="plus" [size]="16" /> Evento personalizado
         </button>
       </header>
-
-      <!-- Formulario de evento personalizado -->
-      @if (showNew()) {
-        <div class="card mb-6 space-y-4 p-5">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div class="sm:col-span-2">
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">
-                Nombre del evento
-              </label>
-              <input
-                [(ngModel)]="draftName"
-                class="field"
-                placeholder="Ej. Aniversario del cliente"
-              />
-            </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">
-                Mes
-              </label>
-              <select [(ngModel)]="draftMonth" class="field">
-                @for (m of months; track m; let i = $index) {
-                  <option [ngValue]="i + 1">{{ m }}</option>
-                }
-              </select>
-            </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">
-                Día
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                [(ngModel)]="draftDay"
-                [disabled]="draftVariable()"
-                class="field disabled:opacity-40"
-              />
-            </div>
-          </div>
-
-          <label class="flex items-center gap-2 text-sm text-slate-300">
-            <input type="checkbox" [(ngModel)]="draftVariableModel" />
-            Fecha variable cada año (Semana Santa, Día de la Madre…)
-          </label>
-          @if (draftVariable()) {
-            <input
-              [(ngModel)]="draftNote"
-              class="field"
-              placeholder="Nota de fecha (ej. 2.º domingo de mayo)"
-            />
-          }
-
-          <div class="rounded-xl border border-white/10 bg-slate-950/50 p-3">
-            <app-icon-picker
-              [value]="draftIcon"
-              (valueChange)="draftIcon = $event"
-            />
-            <div class="mt-3 border-t border-white/5 pt-3">
-              <app-color-picker
-                [value]="draftColor"
-                (valueChange)="draftColor = $event"
-              />
-            </div>
-          </div>
-
-          @if (formError()) {
-            <p class="text-sm text-rose-300">{{ formError() }}</p>
-          }
-          <button (click)="createEvent()" class="btn-primary">
-            <app-icon name="check" [size]="16" /> Guardar evento
-          </button>
-        </div>
-      }
 
       <!-- Lista de eventos -->
       <div class="space-y-3">
@@ -217,12 +152,68 @@ const MONTHS = [
         }
       </div>
     </section>
+
+    <!-- Modal: evento personalizado (solo nombre + fecha) -->
+    @if (showNew()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        (click)="closeNew()"
+      >
+        <div
+          class="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="mb-4 flex items-center gap-3">
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-xl"
+              [style]="chip(DEFAULT_COLOR)"
+            >
+              <app-icon name="calendar" [size]="20" />
+            </div>
+            <h2 class="text-lg font-semibold">Nuevo evento</h2>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-300">
+                Nombre del evento
+              </label>
+              <input
+                [(ngModel)]="draftName"
+                class="field"
+                placeholder="Ej. Aniversario del cliente"
+                autofocus
+              />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-slate-300">
+                Fecha
+              </label>
+              <input type="date" [(ngModel)]="draftDate" class="field" />
+              <p class="mt-1.5 text-xs text-slate-500">
+                Se usa para nombrar las carpetas y archivos del lote.
+              </p>
+            </div>
+
+            @if (formError()) {
+              <p class="text-sm text-rose-300">{{ formError() }}</p>
+            }
+
+            <div class="flex justify-end gap-2 pt-1">
+              <button (click)="closeNew()" class="btn-ghost">Cancelar</button>
+              <button (click)="createEvent()" class="btn-primary">
+                <app-icon name="check" [size]="16" /> Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class EventsComponent {
   private readonly ipc = inject(IpcService);
 
-  protected readonly months = MONTHS;
   protected readonly events = signal<EventItem[]>([]);
   protected readonly clients = signal<Client[]>([]);
   protected readonly appearanceId = signal('');
@@ -231,23 +222,11 @@ export class EventsComponent {
 
   protected readonly badge = badgeStyle;
   protected readonly chip = chipStyle;
+  protected readonly DEFAULT_COLOR = DEFAULT_COLOR;
 
-  // Formulario de evento personalizado.
+  // Modal de evento personalizado.
   protected draftName = '';
-  protected draftMonth = 1;
-  protected draftDay = 1;
-  protected readonly draftVariable = signal(false);
-  protected draftNote = '';
-  protected draftIcon = 'calendar';
-  protected draftColor = DEFAULT_COLOR;
-
-  /** Binding bidireccional para el checkbox de fecha variable. */
-  protected get draftVariableModel(): boolean {
-    return this.draftVariable();
-  }
-  protected set draftVariableModel(v: boolean) {
-    this.draftVariable.set(v);
-  }
+  protected draftDate = todayIso();
 
   constructor() {
     void this.load();
@@ -263,15 +242,25 @@ export class EventsComponent {
   }
 
   protected dateLabel(e: EventItem): string {
+    if (e.date && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+      const [y, m, d] = e.date.split('-').map(Number);
+      return `${d} de ${MONTHS[m - 1] ?? '—'} de ${y}`;
+    }
     if (e.variable) {
       return e.note || 'Fecha variable';
     }
     return `${e.day} de ${MONTHS[e.month - 1] ?? '—'}`;
   }
 
-  protected toggleNew(): void {
-    this.showNew.set(!this.showNew());
+  protected openNew(): void {
+    this.draftName = '';
+    this.draftDate = todayIso();
     this.formError.set('');
+    this.showNew.set(true);
+  }
+
+  protected closeNew(): void {
+    this.showNew.set(false);
   }
 
   protected toggleAppearance(id: string): void {
@@ -285,6 +274,7 @@ export class EventsComponent {
       name: e.name,
       month: e.month,
       day: e.day,
+      date: e.date,
       variable: e.variable,
       note: e.note,
       icon: e.icon,
@@ -319,36 +309,23 @@ export class EventsComponent {
       this.formError.set('El nombre es obligatorio.');
       return;
     }
-    const variable = this.draftVariable();
-    const day = Number(this.draftDay);
-    if (!variable && (day < 1 || day > 31)) {
-      this.formError.set('El día debe estar entre 1 y 31.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.draftDate)) {
+      this.formError.set('Elige una fecha válida.');
       return;
     }
-    if (variable && !this.draftNote.trim()) {
-      this.formError.set('Indica una nota de fecha para el evento variable.');
-      return;
-    }
+    const parts = this.draftDate.split('-').map(Number);
     this.events.set(
       await this.ipc.saveEvent({
         name,
-        month: Number(this.draftMonth),
-        day: variable ? 1 : day,
-        variable,
-        note: variable ? this.draftNote.trim() : undefined,
-        icon: this.draftIcon,
-        color: this.draftColor,
+        month: parts[1],
+        day: parts[2],
+        date: this.draftDate,
+        variable: false,
+        icon: 'calendar',
+        color: DEFAULT_COLOR,
         clients: [],
       }),
     );
-    // Reinicia el formulario.
-    this.draftName = '';
-    this.draftNote = '';
-    this.draftDay = 1;
-    this.draftMonth = 1;
-    this.draftVariable.set(false);
-    this.draftIcon = 'calendar';
-    this.draftColor = DEFAULT_COLOR;
     this.showNew.set(false);
   }
 }

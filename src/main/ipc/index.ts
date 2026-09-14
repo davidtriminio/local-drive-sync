@@ -206,6 +206,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
             fileTypes: req.fileTypes,
             platforms: req.platforms,
             subfolders: req.subfolders,
+            date: req.date,
             confirmDuplicate: req.confirmDuplicate,
           });
           if (result.status === 'duplicate') {
@@ -248,14 +249,19 @@ export function registerIpcHandlers(ctx: IpcContext): void {
 
   ipcMain.handle(IpcChannels.eventsSave, (_e, draft: EventDraft) => {
     const id = draft.id ?? randomUUID();
+    // Si viene una fecha completa válida, deriva mes/día de ella.
+    const hasDate = !!draft.date && /^\d{4}-\d{2}-\d{2}$/.test(draft.date);
+    const month = hasDate ? Number(draft.date!.slice(5, 7)) : draft.month;
+    const day = hasDate ? Number(draft.date!.slice(8, 10)) : draft.day;
     const event: EventItem = {
       id,
       name: draft.name,
-      month: draft.month,
-      day: draft.day,
+      month,
+      day,
+      date: hasDate ? draft.date : undefined,
       variable: draft.variable ?? false,
       note: draft.note,
-      icon: draft.icon ?? 'star',
+      icon: draft.icon ?? 'calendar',
       color: draft.color ?? '#34d399',
       clients: draft.clients.map((c) => sanitizeName(c)).filter(Boolean),
       builtin: BUILTIN_EVENT_IDS.has(id),

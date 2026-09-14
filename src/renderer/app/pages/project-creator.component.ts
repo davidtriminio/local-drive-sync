@@ -641,6 +641,28 @@ export class ProjectCreatorComponent {
     this.batchClients.set(new Set(event.clients.filter((c) => known.has(c))));
   }
 
+  /**
+   * Fecha (AAAA-MM-DD) que usará el lote para nombrar carpetas: la fecha propia
+   * del evento personalizado; si no tiene (feriado recurrente), el día/mes de
+   * este año; si es de fecha variable, se deja vacío (el main usa hoy).
+   */
+  private effectiveEventDate(): string | undefined {
+    const event = this.events().find((e) => e.id === this.selectedEventId());
+    if (!event) {
+      return undefined;
+    }
+    if (event.date && /^\d{4}-\d{2}-\d{2}$/.test(event.date)) {
+      return event.date;
+    }
+    if (!event.variable) {
+      const y = new Date().getFullYear();
+      const mm = String(event.month).padStart(2, '0');
+      const dd = String(event.day).padStart(2, '0');
+      return `${y}-${mm}-${dd}`;
+    }
+    return undefined;
+  }
+
   protected toggleBatchClient(name: string): void {
     const next = new Set(this.batchClients());
     next.has(name) ? next.delete(name) : next.add(name);
@@ -684,6 +706,7 @@ export class ProjectCreatorComponent {
         platforms: [...this.selectedPlatforms()],
         subfolders: [...this.selectedSubfolders()],
         eventId: this.selectedEventId(),
+        date: this.effectiveEventDate(),
         confirmDuplicate,
       });
       this.batchResults.set(results);

@@ -26,14 +26,25 @@ export function sanitizeName(name: string): string {
  * Resuelve el token `{mes}` de una ruta al mes actual (formato "Mes-Año",
  * p. ej. "Septiembre-2026"). Si no hay token, devuelve la ruta sin cambios.
  */
-export function resolveMonthToken(basePath: string): string {
+export function resolveMonthToken(basePath: string, date?: string): string {
   if (!/\{mes\}/i.test(basePath)) {
     return basePath;
   }
-  const now = new Date();
-  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  // Deriva la clave de mes de la fecha dada (AAAA-MM-DD) o del mes actual.
+  const key =
+    date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date.slice(0, 7)
+      : (() => {
+          const now = new Date();
+          return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        })();
   const month = new MonthNormalizer().render(key, 'Mes-Año');
   return basePath.replace(/\{mes\}/gi, month);
+}
+
+/** Valida una fecha AAAA-MM-DD; si no es válida, devuelve la de hoy. */
+function resolveDate(date?: string): string {
+  return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : today();
 }
 
 /** Fecha local en formato YYYY-MM-DD. */
@@ -66,11 +77,11 @@ export class ProjectCreator {
   create(req: CreateProjectRequest): CreateProjectResult {
     const clientClean = sanitizeName(req.client);
     const projectClean = sanitizeName(req.project);
-    const date = today();
+    const date = resolveDate(req.date);
     const month = date.slice(0, 7); // YYYY-MM
 
-    // Resuelve {mes} al mes actual y asegura que la carpeta base exista.
-    const basePath = resolveMonthToken(req.basePath);
+    // Resuelve {mes} según la fecha dada y asegura que la carpeta base exista.
+    const basePath = resolveMonthToken(req.basePath, date);
     fs.mkdirSync(basePath, { recursive: true });
 
     // Aviso de duplicado: misma carpeta cliente_proyecto en el mismo mes.
