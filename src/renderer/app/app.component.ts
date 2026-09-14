@@ -98,6 +98,7 @@ export class AppComponent implements OnDestroy {
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: 'layers', exact: true },
     { path: 'creator', label: 'Proyectos', icon: 'palette', exact: false },
+    { path: 'clients', label: 'Clientes', icon: 'user', exact: false },
     { path: 'events', label: 'Eventos', icon: 'calendar', exact: false },
     {
       path: 'notifications',
