@@ -3,7 +3,9 @@ import {
   IpcChannels,
   type Api,
   type AppSettings,
+  type CreateBatchRequest,
   type CreateProjectRequest,
+  type EventDraft,
   type MappingDraft,
   type SyncPlan,
   type SyncPreviewRequest,
@@ -50,6 +52,12 @@ const api: Api = {
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),
+  createProjectBatch: (req: CreateBatchRequest) =>
+    ipcRenderer.invoke(IpcChannels.projectCreateBatch, req),
+  listEvents: () => ipcRenderer.invoke(IpcChannels.eventsList),
+  saveEvent: (draft: EventDraft) =>
+    ipcRenderer.invoke(IpcChannels.eventsSave, draft),
+  deleteEvent: (id: string) => ipcRenderer.invoke(IpcChannels.eventsDelete, id),
   getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
   setCreatorBasePath: (basePath: string) =>
     ipcRenderer.invoke(IpcChannels.creatorSetBasePath, basePath),

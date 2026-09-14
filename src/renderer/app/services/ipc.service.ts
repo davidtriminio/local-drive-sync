@@ -3,10 +3,14 @@ import type {
   Api,
   AppSettings,
   Client,
+  CreateBatchRequest,
+  CreateBatchResult,
   CreateProjectRequest,
   CreateProjectResult,
   CreatorPrefs,
   DiffResult,
+  EventDraft,
+  EventItem,
   Mapping,
   MappingDraft,
   Platform,
@@ -87,6 +91,18 @@ export class IpcService {
   }
   createProject(req: CreateProjectRequest): Promise<CreateProjectResult> {
     return this.api.createProject(req);
+  }
+  createProjectBatch(req: CreateBatchRequest): Promise<CreateBatchResult> {
+    return this.api.createProjectBatch(req);
+  }
+  listEvents(): Promise<EventItem[]> {
+    return this.api.listEvents();
+  }
+  saveEvent(draft: EventDraft): Promise<EventItem[]> {
+    return this.api.saveEvent(draft);
+  }
+  deleteEvent(id: string): Promise<EventItem[]> {
+    return this.api.deleteEvent(id);
   }
   getCreatorPrefs(): Promise<CreatorPrefs> {
     return this.api.getCreatorPrefs();

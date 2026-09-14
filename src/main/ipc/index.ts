@@ -6,7 +6,11 @@ import {
   type Mapping,
   type MappingDraft,
   type AppSettings,
+  type BatchClientResult,
+  type CreateBatchRequest,
   type CreateProjectRequest,
+  type EventDraft,
+  type EventItem,
   type SyncPlan,
   type SyncPreviewRequest,
   type SyncProgress,
@@ -15,6 +19,7 @@ import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ProjectCreator, sanitizeName } from '../domain/project-creator';
+import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { importLegacyClients } from '../domain/legacy-import';
 import { creatorAssetsDir, platformsFile } from '../resources';
 
@@ -180,6 +185,88 @@ export function registerIpcHandlers(ctx: IpcContext): void {
       });
     }
     return result;
+  });
+
+  // Crea el mismo proyecto (arte) para varios clientes en una sola acción.
+  ipcMain.handle(
+    IpcChannels.projectCreateBatch,
+    (_e, req: CreateBatchRequest) => {
+      const project = sanitizeName(req.project);
+      const results: BatchClientResult[] = [];
+      for (const rawClient of req.clients) {
+        const client = sanitizeName(rawClient);
+        if (!client) {
+          continue;
+        }
+        try {
+          const result = projectCreator.create({
+            client,
+            project: req.project,
+            basePath: req.basePath,
+            fileTypes: req.fileTypes,
+            platforms: req.platforms,
+            subfolders: req.subfolders,
+            confirmDuplicate: req.confirmDuplicate,
+          });
+          if (result.status === 'duplicate') {
+            results.push({
+              client,
+              status: 'duplicate',
+              existingFolder: result.existingFolder,
+            });
+            continue;
+          }
+          repo.recordProject(client, project, result.folderName ?? '');
+          results.push({
+            client,
+            status: 'created',
+            folderName: result.folderName,
+          });
+        } catch (err) {
+          results.push({ client, status: 'error', error: String(err) });
+        }
+      }
+      // Recuerda la configuración para la próxima vez (como en create único).
+      const created = results.filter((r) => r.status === 'created');
+      if (created.length > 0) {
+        repo.setCreatorPrefs({
+          basePath: req.basePath,
+          fileTypes: req.fileTypes,
+          platforms: req.platforms,
+          subfolders: req.subfolders ?? [],
+          lastClient: created[0].client,
+        });
+      }
+      return { results };
+    },
+  );
+
+  // --- Eventos y feriados ---
+  ipcMain.handle(IpcChannels.eventsList, () =>
+    mergeHondurasEvents(repo.listStoredEvents()),
+  );
+
+  ipcMain.handle(IpcChannels.eventsSave, (_e, draft: EventDraft) => {
+    const id = draft.id ?? randomUUID();
+    const event: EventItem = {
+      id,
+      name: draft.name,
+      month: draft.month,
+      day: draft.day,
+      variable: draft.variable ?? false,
+      note: draft.note,
+      icon: draft.icon ?? 'star',
+      color: draft.color ?? '#34d399',
+      clients: draft.clients.map((c) => sanitizeName(c)).filter(Boolean),
+      builtin: BUILTIN_EVENT_IDS.has(id),
+    };
+    repo.upsertEvent(event);
+    return mergeHondurasEvents(repo.listStoredEvents());
+  });
+
+  ipcMain.handle(IpcChannels.eventsDelete, (_e, id: string) => {
+    repo.deleteEvent(id);
+    return mergeHondurasEvents(repo.listStoredEvents());
   });
 
   ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());
