@@ -49,6 +49,10 @@ const api: Api = {
     ipcRenderer.invoke(IpcChannels.clientsSetIcon, name, icon),
   setClientColor: (name: string, color: string) =>
     ipcRenderer.invoke(IpcChannels.clientsSetColor, name, color),
+  deleteClient: (name: string, mappingIds: string[]) =>
+    ipcRenderer.invoke(IpcChannels.clientsDelete, name, mappingIds),
+  deleteClientProject: (name: string, project: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsDeleteProject, name, project),
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
   createProject: (req: CreateProjectRequest) =>
     ipcRenderer.invoke(IpcChannels.projectCreate, req),

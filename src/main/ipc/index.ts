@@ -162,6 +162,26 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     },
   );
 
+  ipcMain.handle(
+    IpcChannels.clientsDelete,
+    (_e, name: string, mappingIds: string[]) => {
+      // Cascada opcional a los mapeos relacionados que el usuario eligió.
+      for (const id of mappingIds ?? []) {
+        repo.deleteMapping(id);
+      }
+      repo.deleteClient(sanitizeName(name));
+      return repo.listClients();
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.clientsDeleteProject,
+    (_e, name: string, project: string) => {
+      repo.deleteClientProject(sanitizeName(name), sanitizeName(project));
+      return repo.listClients();
+    },
+  );
+
   ipcMain.handle(IpcChannels.platformsList, () =>
     ProjectCreator.loadPlatforms(platformsFile()),
   );

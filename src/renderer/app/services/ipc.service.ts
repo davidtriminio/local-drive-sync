@@ -87,6 +87,12 @@ export class IpcService {
   setClientColor(name: string, color: string): Promise<Client[]> {
     return this.api.setClientColor(name, color);
   }
+  deleteClient(name: string, mappingIds: string[]): Promise<Client[]> {
+    return this.api.deleteClient(name, mappingIds);
+  }
+  deleteClientProject(name: string, project: string): Promise<Client[]> {
+    return this.api.deleteClientProject(name, project);
+  }
   listPlatforms(): Promise<Platform[]> {
     return this.api.listPlatforms();
   }

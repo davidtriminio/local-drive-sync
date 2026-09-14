@@ -115,8 +115,25 @@ export class Repository {
     return mapping;
   }
 
+  /**
+   * Elimina un mapeo y todo lo que dependía de él, evitando registros
+   * huérfanos: su historial de ejecuciones, las entradas de papelera de esas
+   * ejecuciones, su índice incremental (todos los meses) y su firma de
+   * notificación. No toca carpetas del disco.
+   */
   deleteMapping(id: string): void {
     this.db.mappings = this.db.mappings.filter((m) => m.id !== id);
+    const runIds = new Set(
+      this.db.runs.filter((r) => r.mappingId === id).map((r) => r.id),
+    );
+    this.db.runs = this.db.runs.filter((r) => r.mappingId !== id);
+    this.db.trash = this.db.trash.filter((t) => !runIds.has(t.runId));
+    for (const key of Object.keys(this.db.index)) {
+      if (key.startsWith(`${id}::`)) {
+        delete this.db.index[key];
+      }
+    }
+    delete this.db.notifAcks[id];
     this.persist();
   }
 
@@ -262,6 +279,34 @@ export class Repository {
       client.color = color;
       this.persist();
     }
+  }
+
+  /** Elimina un proyecto del historial de un cliente (solo registro). */
+  deleteClientProject(clientName: string, projectName: string): void {
+    const client = this.db.clients.find((c) => c.name === clientName);
+    if (!client) {
+      return;
+    }
+    client.projects = client.projects.filter((p) => p.name !== projectName);
+    this.persist();
+  }
+
+  /**
+   * Elimina un cliente y lo desvincula de lo relacionado: lo quita de los
+   * eventos que lo referencian y limpia `lastClient`. La cascada a mapeos (si
+   * el usuario la pide) se hace aparte con `deleteMapping`. No toca disco.
+   */
+  deleteClient(clientName: string): void {
+    this.db.clients = this.db.clients.filter((c) => c.name !== clientName);
+    for (const e of this.db.events) {
+      if (e.clients.includes(clientName)) {
+        e.clients = e.clients.filter((c) => c !== clientName);
+      }
+    }
+    if (this.db.creatorPrefs.lastClient === clientName) {
+      this.db.creatorPrefs.lastClient = '';
+    }
+    this.persist();
   }
 
   // --- Eventos y feriados ---

@@ -30,6 +30,8 @@ export const IpcChannels = {
   creatorSetBasePath: 'creator:setBasePath',
   clientsSetIcon: 'clients:setIcon',
   clientsSetColor: 'clients:setColor',
+  clientsDelete: 'clients:delete',
+  clientsDeleteProject: 'clients:deleteProject',
   eventsList: 'events:list',
   eventsSave: 'events:save',
   eventsDelete: 'events:delete',
@@ -424,6 +426,14 @@ export interface Api {
   setClientIcon(name: string, icon: string): Promise<Client[]>;
   /** Asigna un color a un cliente existente; devuelve la lista actualizada. */
   setClientColor(name: string, color: string): Promise<Client[]>;
+  /**
+   * Elimina un cliente y sus registros. `mappingIds` son los mapeos
+   * relacionados que el usuario decidió borrar también (en cascada); vacío para
+   * conservarlos. No toca carpetas del disco. Devuelve la lista actualizada.
+   */
+  deleteClient(name: string, mappingIds: string[]): Promise<Client[]>;
+  /** Elimina un proyecto del historial de un cliente; devuelve la lista. */
+  deleteClientProject(name: string, project: string): Promise<Client[]>;
   /** Catálogo de plataformas y sus formatos. */
   listPlatforms(): Promise<Platform[]>;
   /** Crea un proyecto; puede devolver un aviso de duplicado. */
