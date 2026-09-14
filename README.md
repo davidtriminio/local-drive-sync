@@ -27,6 +27,10 @@ npm run dist    # instalador .exe (NSIS) en release/
 - [Arquitectura técnica](docs/ARQUITECTURA.md)
 - [Estructura del proyecto y andamiaje](docs/ESTRUCTURA.md)
 - [Implementación v1 (qué se construyó)](docs/IMPLEMENTACION.md)
+- [Creador de proyectos gráficos](docs/CREADOR.md)
+- [Eventos y feriados (creación en lote)](docs/EVENTOS.md)
+- [Notificaciones de sincronización](docs/NOTIFICACIONES.md)
+- [Eliminación sincronizada](docs/ELIMINACION.md)
 
 ## Roadmap
 

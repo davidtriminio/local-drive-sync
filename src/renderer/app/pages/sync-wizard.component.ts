@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import { currentMonthKey, formatBytes } from '../shared/format.util';
 import type {
   DiffResult,
@@ -17,30 +18,31 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 @Component({
   selector: 'app-sync-wizard',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <section class="mx-auto max-w-5xl p-8">
-      <header class="mb-6 flex items-center justify-between">
-        <h1 class="text-2xl font-semibold">Sincronizar</h1>
-        <a routerLink="/" class="text-sm text-slate-400 hover:text-slate-200">
-          ← Volver
-        </a>
+      <header class="mb-8 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+          >
+            <app-icon name="refresh" [size]="24" />
+          </div>
+          <h1 class="page-title">Sincronizar</h1>
+        </div>
+        <a routerLink="/" class="btn-ghost">← Volver</a>
       </header>
 
       <!-- Paso: mes -->
       @if (step() === 'month') {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
+        <div class="card p-6">
           <label class="mb-2 block text-sm text-slate-300">Mes a sincronizar</label>
-          <input
-            type="month"
-            [(ngModel)]="monthKey"
-            class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-          />
+          <input type="month" [(ngModel)]="monthKey" class="field max-w-xs" />
           <div class="mt-5">
             <button
               (click)="analizar()"
               [disabled]="busy()"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-primary"
             >
               {{ busy() ? 'Analizando…' : 'Analizar diferencias' }}
             </button>
@@ -82,18 +84,18 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
           }
 
           <div class="flex gap-2 text-xs">
-            <button (click)="seleccionar('NEW', 'copy')" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="seleccionar('NEW', 'copy')" class="btn-ghost btn-sm">
               Marcar nuevos
             </button>
-            <button (click)="seleccionar('MODIFIED', 'copy')" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="seleccionar('MODIFIED', 'copy')" class="btn-ghost btn-sm">
               Marcar modificados
             </button>
-            <button (click)="limpiar()" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="limpiar()" class="btn-ghost btn-sm">
               Limpiar selección
             </button>
           </div>
 
-          <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-slate-800">
+          <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-white/5">
             <table class="w-full text-sm">
               <tbody>
                 @for (f of d.files; track f.relPath) {
@@ -145,11 +147,11 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <button
               (click)="continuar()"
               [disabled]="busy()"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-primary"
             >
               Vista previa →
             </button>
-            <button (click)="step.set('month')" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <button (click)="step.set('month')" class="btn-ghost">
               ← Cambiar mes
             </button>
           </div>
@@ -159,7 +161,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
       <!-- Paso: preview -->
       @if (step() === 'preview' && plan(); as p) {
         <div class="space-y-4">
-          <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+          <div class="card p-5">
             <h2 class="mb-3 font-medium">Se ejecutarán estas acciones:</h2>
             <ul class="space-y-1 text-sm text-slate-300">
               <li>📄 Copiar archivos nuevos: <b>{{ p.summary.copy }}</b></li>
@@ -183,11 +185,11 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <button
               (click)="ejecutar()"
               [disabled]="busy() || p.summary.copy + p.summary.update + p.summary.mkdir === 0"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-primary"
             >
               Ejecutar sincronización
             </button>
-            <button (click)="step.set('diff')" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <button (click)="step.set('diff')" class="btn-ghost">
               ← Volver a diferencias
             </button>
           </div>
@@ -196,7 +198,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 
       <!-- Paso: run -->
       @if (step() === 'run') {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
+        <div class="card p-6">
           <h2 class="mb-4 font-medium">Sincronizando…</h2>
           @if (progress(); as pr) {
             <div class="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-700">
@@ -217,7 +219,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 
       <!-- Paso: done -->
       @if (step() === 'done' && summary(); as s) {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
+        <div class="card p-6">
           <h2 class="mb-3 text-lg font-semibold text-emerald-300">Sincronización terminada</h2>
           <ul class="space-y-1 text-sm text-slate-300">
             <li>✓ {{ s.nCopied }} copiados</li>
@@ -235,7 +237,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <a routerLink="/" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400">
               Hecho
             </a>
-            <a routerLink="/history" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <a routerLink="/history" class="btn-ghost">
               Ver historial
             </a>
           </div>

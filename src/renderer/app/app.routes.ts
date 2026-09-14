@@ -26,6 +26,30 @@ export const routes: Routes = [
       import('./pages/sync-wizard.component').then((m) => m.SyncWizardComponent),
   },
   {
+    path: 'creator',
+    loadComponent: () =>
+      import('./pages/project-creator.component').then(
+        (m) => m.ProjectCreatorComponent,
+      ),
+  },
+  {
+    path: 'events',
+    loadComponent: () =>
+      import('./pages/events.component').then((m) => m.EventsComponent),
+  },
+  {
+    path: 'clients',
+    loadComponent: () =>
+      import('./pages/clients.component').then((m) => m.ClientsComponent),
+  },
+  {
+    path: 'notifications',
+    loadComponent: () =>
+      import('./pages/notifications.component').then(
+        (m) => m.NotificationsComponent,
+      ),
+  },
+  {
     path: 'history',
     loadComponent: () =>
       import('./pages/history.component').then((m) => m.HistoryComponent),
