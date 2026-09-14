@@ -30,6 +30,7 @@ npm run dist    # instalador .exe (NSIS) en release/
 - [Creador de proyectos gráficos](docs/CREADOR.md)
 - [Eventos y feriados (creación en lote)](docs/EVENTOS.md)
 - [Notificaciones de sincronización](docs/NOTIFICACIONES.md)
+- [Eliminación sincronizada](docs/ELIMINACION.md)
 
 ## Roadmap
 
