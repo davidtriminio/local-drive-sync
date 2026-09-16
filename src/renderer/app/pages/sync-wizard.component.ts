@@ -42,8 +42,17 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
       <!-- Paso: mes -->
       @if (step() === 'month') {
         <div class="card p-6">
-          <label class="mb-2 block text-sm text-slate-300">Mes a sincronizar</label>
-          <input type="month" [(ngModel)]="monthKey" class="field max-w-xs" />
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm text-slate-300">Mes detectado</p>
+              <p class="mt-1 font-mono text-lg text-emerald-300">{{ monthKey }}</p>
+            </div>
+            @if (busy()) {
+              <span class="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300">
+                Preparando…
+              </span>
+            }
+          </div>
           <div class="mt-5 flex flex-wrap gap-3">
             <button
               (click)="sincronizarRapido()"
@@ -62,7 +71,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             </button>
           </div>
           <p class="mt-3 text-xs text-slate-500">
-            Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente.
+            La app usa el mes actual automáticamente. Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente.
           </p>
         </div>
       }
@@ -282,12 +291,15 @@ export class SyncWizardComponent implements OnDestroy {
   private mappingId = '';
   private unsubProgress: (() => void) | null = null;
   private unsubDone: (() => void) | null = null;
+  private autoStarted = false;
 
   constructor() {
     this.mappingId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.mappingId) {
       void this.router.navigate(['/']);
+      return;
     }
+    queueMicrotask(() => void this.startCurrentMonthSync());
   }
 
   ngOnDestroy(): void {
@@ -319,6 +331,9 @@ export class SyncWizardComponent implements OnDestroy {
   }
 
   protected async sincronizarRapido(): Promise<void> {
+    if (this.busy()) {
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {
@@ -341,6 +356,14 @@ export class SyncWizardComponent implements OnDestroy {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private async startCurrentMonthSync(): Promise<void> {
+    if (this.autoStarted) {
+      return;
+    }
+    this.autoStarted = true;
+    await this.sincronizarRapido();
   }
 
   protected toggle(file: FileDiff, checked: boolean): void {
