@@ -2,11 +2,9 @@
   "Instagram": {
     "sigla": "ig",
     "formats": {
-      "Feed Square": "1080x1080",
-      "Feed Portrait": "1080x1350",
+      "Publicación normal": "1080x1080",
       "Story": "1080x1920",
-      "Profile": "720x720",
-      "Reel Cover": "1080x1920"
+      "Logo": "720x720"
     }
   },
   "Facebook": {

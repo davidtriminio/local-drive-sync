@@ -39,6 +39,7 @@ const DEFAULT_CREATOR_PREFS: CreatorPrefs = {
   basePath: '',
   fileTypes: ['psd'],
   platforms: [],
+  formats: [],
   subfolders: [],
   lastClient: '',
 };

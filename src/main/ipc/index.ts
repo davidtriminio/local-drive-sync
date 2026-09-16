@@ -201,6 +201,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
         basePath: req.basePath,
         fileTypes: req.fileTypes,
         platforms: req.platforms,
+        formats: req.formats?.map((f) => `${f.platform}::${f.format}`) ?? [],
         subfolders: req.subfolders ?? [],
         lastClient: sanitizeName(req.client),
       });
@@ -226,6 +227,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
             basePath: req.basePath,
             fileTypes: req.fileTypes,
             platforms: req.platforms,
+            formats: req.formats,
             subfolders: req.subfolders,
             date: req.date,
             confirmDuplicate: req.confirmDuplicate,
@@ -255,6 +257,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
           basePath: req.basePath,
           fileTypes: req.fileTypes,
           platforms: req.platforms,
+          formats: req.formats?.map((f) => `${f.platform}::${f.format}`) ?? [],
           subfolders: req.subfolders ?? [],
           lastClient: created[0].client,
         });

@@ -5,6 +5,7 @@ import {
   DEFAULT_SUBFOLDERS,
   type CreateProjectRequest,
   type CreateProjectResult,
+  type PlatformFormatSelection,
   type Platform,
 } from '../../shared/ipc-contract';
 
@@ -20,6 +21,12 @@ EXAMPLES:
 /** Convierte a minúsculas y reemplaza espacios por guiones bajos. */
 export function sanitizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function sanitizeKey(name: string): string {
+  return sanitizeName(name)
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
 }
 
 /**
@@ -60,9 +67,18 @@ function psdTemplateFor(platformName: string): string {
   return `base-${sanitizeName(platformName)}.psd`;
 }
 
-function psdOutputName(folderName: string, platformName: string, total: number): string {
+function psdTemplateForFormat(selection: PlatformFormatSelection): string {
+  const platform = sanitizeKey(selection.platform);
+  const format = sanitizeKey(selection.format);
+  if (!format || ['feed', 'feed_square', 'publicacion_normal'].includes(format)) {
+    return `base-${platform}.psd`;
+  }
+  return `base-${platform}-${format}.psd`;
+}
+
+function psdOutputName(folderName: string, name: string, total: number): string {
   return total > 1
-    ? `${folderName}_${sanitizeName(platformName)}.psd`
+    ? `${folderName}_${sanitizeKey(name)}.psd`
     : `${folderName}.psd`;
 }
 
@@ -130,10 +146,17 @@ export class ProjectCreator {
       const psdDir = singleType ? workfiles : path.join(workfiles, 'psd');
       fs.mkdirSync(psdDir, { recursive: true });
       const rel = singleType ? '04_workfiles/' : '04_workfiles/psd/';
-      for (const platform of req.platforms) {
-        const templateName = psdTemplateFor(platform);
+      const selections = this.psdSelections(req);
+      for (const selection of selections) {
+        const templateName = selection.format
+          ? psdTemplateForFormat(selection)
+          : psdTemplateFor(selection.platform);
         const src = path.join(this.templatesDir, templateName);
-        const outputName = psdOutputName(folderName, platform, req.platforms.length);
+        const outputName = psdOutputName(
+          folderName,
+          selection.format || selection.platform,
+          selections.length,
+        );
         if (fs.existsSync(src)) {
           fs.copyFileSync(src, path.join(psdDir, outputName));
           log.push(`COPIED: ${templateName} -> ${rel}${outputName}`);
@@ -177,6 +200,13 @@ export class ProjectCreator {
     );
 
     return { status: 'created', folderName, projectPath, log };
+  }
+
+  private psdSelections(req: CreateProjectRequest): PlatformFormatSelection[] {
+    if (req.formats && req.formats.length > 0) {
+      return req.formats;
+    }
+    return req.platforms.map((platform) => ({ platform, format: '', size: '' }));
   }
 
   /** Carga el catálogo de plataformas desde un platforms.json. */
