@@ -60,6 +60,12 @@ function psdTemplateFor(platformName: string): string {
   return `base-${sanitizeName(platformName)}.psd`;
 }
 
+function psdOutputName(folderName: string, platformName: string, total: number): string {
+  return total > 1
+    ? `${folderName}_${sanitizeName(platformName)}.psd`
+    : `${folderName}.psd`;
+}
+
 /**
  * Crea la estructura de un proyecto gráfico y copia las plantillas base.
  *
@@ -127,9 +133,10 @@ export class ProjectCreator {
       for (const platform of req.platforms) {
         const templateName = psdTemplateFor(platform);
         const src = path.join(this.templatesDir, templateName);
+        const outputName = psdOutputName(folderName, platform, req.platforms.length);
         if (fs.existsSync(src)) {
-          fs.copyFileSync(src, path.join(psdDir, templateName));
-          log.push(`COPIED: ${templateName} -> ${rel}`);
+          fs.copyFileSync(src, path.join(psdDir, outputName));
+          log.push(`COPIED: ${templateName} -> ${rel}${outputName}`);
         } else {
           log.push(`MISSING TEMPLATE: ${templateName}`);
         }
@@ -143,8 +150,9 @@ export class ProjectCreator {
       const rel = singleType ? '04_workfiles/' : '04_workfiles/ai/';
       const src = path.join(this.templatesDir, 'base.ai');
       if (fs.existsSync(src)) {
-        fs.copyFileSync(src, path.join(aiDir, 'base.ai'));
-        log.push(`COPIED: base.ai -> ${rel}`);
+        const outputName = `${folderName}.ai`;
+        fs.copyFileSync(src, path.join(aiDir, outputName));
+        log.push(`COPIED: base.ai -> ${rel}${outputName}`);
       } else {
         log.push('MISSING TEMPLATE: base.ai');
       }

@@ -33,20 +33,37 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
         <a routerLink="/" class="btn-ghost">← Volver</a>
       </header>
 
+      @if (error()) {
+        <div class="mb-5 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300">
+          {{ error() }}
+        </div>
+      }
+
       <!-- Paso: mes -->
       @if (step() === 'month') {
         <div class="card p-6">
           <label class="mb-2 block text-sm text-slate-300">Mes a sincronizar</label>
           <input type="month" [(ngModel)]="monthKey" class="field max-w-xs" />
-          <div class="mt-5">
+          <div class="mt-5 flex flex-wrap gap-3">
+            <button
+              (click)="sincronizarRapido()"
+              [disabled]="busy()"
+              class="btn-primary"
+            >
+              <app-icon name="sparkles" [size]="18" />
+              {{ busy() ? 'Preparando…' : 'Sincronizar todo' }}
+            </button>
             <button
               (click)="analizar()"
               [disabled]="busy()"
-              class="btn-primary"
+              class="btn-ghost"
             >
               {{ busy() ? 'Analizando…' : 'Analizar diferencias' }}
             </button>
           </div>
+          <p class="mt-3 text-xs text-slate-500">
+            Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente.
+          </p>
         </div>
       }
 
@@ -257,6 +274,7 @@ export class SyncWizardComponent implements OnDestroy {
   protected readonly plan = signal<SyncPlan | null>(null);
   protected readonly progress = signal<SyncProgress | null>(null);
   protected readonly summary = signal<RunSummary | null>(null);
+  protected readonly error = signal('');
 
   protected monthKey = currentMonthKey();
   private readonly decisions = signal<Record<string, FileDecision>>({});
@@ -287,17 +305,39 @@ export class SyncWizardComponent implements OnDestroy {
 
   protected async analizar(): Promise<void> {
     this.busy.set(true);
+    this.error.set('');
     try {
       const result = await this.ipc.scanDiff(this.mappingId, this.monthKey);
       this.diff.set(result);
-      const initial: Record<string, FileDecision> = {};
-      for (const f of result.files) {
-        if (f.status === 'NEW' || f.status === 'MODIFIED') {
-          initial[f.relPath] = 'copy';
-        }
-      }
-      this.decisions.set(initial);
+      this.decisions.set(this.defaultDecisions(result));
       this.step.set('diff');
+    } catch (e) {
+      this.error.set(`No se pudo analizar: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  protected async sincronizarRapido(): Promise<void> {
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const result = await this.ipc.scanDiff(this.mappingId, this.monthKey);
+      this.diff.set(result);
+      this.decisions.set(this.defaultDecisions(result));
+      const plan = await this.ipc.previewSync({
+        mappingId: this.mappingId,
+        monthKey: this.monthKey,
+        selections: this.selectedItems(),
+      });
+      this.plan.set(plan);
+      if (plan.summary.copy + plan.summary.update + plan.summary.mkdir === 0) {
+        this.step.set('preview');
+        return;
+      }
+      await this.ejecutar(false);
+    } catch (e) {
+      this.error.set(`No se pudo sincronizar: ${String(e)}`);
     } finally {
       this.busy.set(false);
     }
@@ -341,31 +381,34 @@ export class SyncWizardComponent implements OnDestroy {
 
   protected async continuar(): Promise<void> {
     this.busy.set(true);
+    this.error.set('');
     try {
-      const decisions = this.decisions();
-      const selections = Object.keys(decisions).map((relPath) => ({
-        relPath,
-        decision: decisions[relPath],
-      }));
       const plan = await this.ipc.previewSync({
         mappingId: this.mappingId,
         monthKey: this.monthKey,
-        selections,
+        selections: this.selectedItems(),
       });
       this.plan.set(plan);
       this.step.set('preview');
+    } catch (e) {
+      this.error.set(`No se pudo preparar la vista previa: ${String(e)}`);
     } finally {
       this.busy.set(false);
     }
   }
 
-  protected async ejecutar(): Promise<void> {
+  protected async ejecutar(manageBusy = true): Promise<void> {
     const plan = this.plan();
     if (!plan) {
       return;
     }
+    if (manageBusy) {
+      this.busy.set(true);
+      this.error.set('');
+    }
     this.progress.set(null);
     this.step.set('run');
+    this.resetSyncSubscriptions();
     this.unsubProgress = this.ipc.onSyncProgress((p) => {
       if (p.runId === plan.id) {
         this.progress.set(p);
@@ -377,7 +420,15 @@ export class SyncWizardComponent implements OnDestroy {
         this.step.set('done');
       }
     });
-    await this.ipc.executeSync(plan);
+    try {
+      await this.ipc.executeSync(plan);
+    } catch (e) {
+      this.error.set(`No se pudo ejecutar la sincronización: ${String(e)}`);
+    } finally {
+      if (manageBusy) {
+        this.busy.set(false);
+      }
+    }
   }
 
   protected cancelar(): void {
@@ -404,5 +455,30 @@ export class SyncWizardComponent implements OnDestroy {
         ONLY_DRIVE: 'bg-sky-500/20 text-sky-300',
       }[status] ?? 'bg-slate-600/40 text-slate-400'
     );
+  }
+
+  private defaultDecisions(result: DiffResult): Record<string, FileDecision> {
+    const initial: Record<string, FileDecision> = {};
+    for (const f of result.files) {
+      if (f.status === 'NEW' || f.status === 'MODIFIED') {
+        initial[f.relPath] = 'copy';
+      }
+    }
+    return initial;
+  }
+
+  private selectedItems(): { relPath: string; decision: FileDecision }[] {
+    const decisions = this.decisions();
+    return Object.keys(decisions).map((relPath) => ({
+      relPath,
+      decision: decisions[relPath],
+    }));
+  }
+
+  private resetSyncSubscriptions(): void {
+    this.unsubProgress?.();
+    this.unsubDone?.();
+    this.unsubProgress = null;
+    this.unsubDone = null;
   }
 }
