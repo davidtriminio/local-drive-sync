@@ -3,6 +3,9 @@ import {
   IpcChannels,
   type Api,
   type AppSettings,
+  type CreateBatchRequest,
+  type CreateProjectRequest,
+  type EventDraft,
   type MappingDraft,
   type SyncPlan,
   type SyncPreviewRequest,
@@ -41,6 +44,32 @@ const api: Api = {
   listTrash: () => ipcRenderer.invoke(IpcChannels.trashList),
   restoreTrash: (trashId: string) =>
     ipcRenderer.invoke(IpcChannels.trashRestore, trashId),
+  listClients: () => ipcRenderer.invoke(IpcChannels.clientsList),
+  setClientIcon: (name: string, icon: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsSetIcon, name, icon),
+  setClientColor: (name: string, color: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsSetColor, name, color),
+  deleteClient: (name: string, mappingIds: string[]) =>
+    ipcRenderer.invoke(IpcChannels.clientsDelete, name, mappingIds),
+  deleteClientProject: (name: string, project: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsDeleteProject, name, project),
+  listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
+  createProject: (req: CreateProjectRequest) =>
+    ipcRenderer.invoke(IpcChannels.projectCreate, req),
+  createProjectBatch: (req: CreateBatchRequest) =>
+    ipcRenderer.invoke(IpcChannels.projectCreateBatch, req),
+  listEvents: () => ipcRenderer.invoke(IpcChannels.eventsList),
+  saveEvent: (draft: EventDraft) =>
+    ipcRenderer.invoke(IpcChannels.eventsSave, draft),
+  deleteEvent: (id: string) => ipcRenderer.invoke(IpcChannels.eventsDelete, id),
+  checkNotifications: () => ipcRenderer.invoke(IpcChannels.notificationsCheck),
+  markNotificationRead: (mappingId: string, signature: string) =>
+    ipcRenderer.invoke(IpcChannels.notificationsMarkRead, mappingId, signature),
+  markAllNotificationsRead: () =>
+    ipcRenderer.invoke(IpcChannels.notificationsMarkAllRead),
+  getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
+  setCreatorBasePath: (basePath: string) =>
+    ipcRenderer.invoke(IpcChannels.creatorSetBasePath, basePath),
   onSyncProgress: (cb: (p: SyncProgress) => void) => {
     const listener = (_e: IpcRendererEvent, payload: SyncProgress): void =>
       cb(payload);

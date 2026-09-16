@@ -2,6 +2,7 @@ import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import { currentMonthKey, formatBytes } from '../shared/format.util';
 import type {
   DiffResult,
@@ -17,34 +18,61 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 @Component({
   selector: 'app-sync-wizard',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
     <section class="mx-auto max-w-5xl p-8">
-      <header class="mb-6 flex items-center justify-between">
-        <h1 class="text-2xl font-semibold">Sincronizar</h1>
-        <a routerLink="/" class="text-sm text-slate-400 hover:text-slate-200">
-          ← Volver
-        </a>
+      <header class="mb-8 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div
+            class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+          >
+            <app-icon name="refresh" [size]="24" />
+          </div>
+          <h1 class="page-title">Sincronizar</h1>
+        </div>
+        <a routerLink="/" class="btn-ghost">← Volver</a>
       </header>
+
+      @if (error()) {
+        <div class="mb-5 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300">
+          {{ error() }}
+        </div>
+      }
 
       <!-- Paso: mes -->
       @if (step() === 'month') {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
-          <label class="mb-2 block text-sm text-slate-300">Mes a sincronizar</label>
-          <input
-            type="month"
-            [(ngModel)]="monthKey"
-            class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-          />
-          <div class="mt-5">
+        <div class="card p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm text-slate-300">Mes detectado</p>
+              <p class="mt-1 font-mono text-lg text-emerald-300">{{ monthKey }}</p>
+            </div>
+            @if (busy()) {
+              <span class="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300">
+                Preparando…
+              </span>
+            }
+          </div>
+          <div class="mt-5 flex flex-wrap gap-3">
+            <button
+              (click)="sincronizarRapido()"
+              [disabled]="busy()"
+              class="btn-primary"
+            >
+              <app-icon name="sparkles" [size]="18" />
+              {{ busy() ? 'Preparando…' : 'Sincronizar todo' }}
+            </button>
             <button
               (click)="analizar()"
               [disabled]="busy()"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-ghost"
             >
               {{ busy() ? 'Analizando…' : 'Analizar diferencias' }}
             </button>
           </div>
+          <p class="mt-3 text-xs text-slate-500">
+            La app usa el mes actual automáticamente. Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente.
+          </p>
         </div>
       }
 
@@ -82,18 +110,18 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
           }
 
           <div class="flex gap-2 text-xs">
-            <button (click)="seleccionar('NEW', 'copy')" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="seleccionar('NEW', 'copy')" class="btn-ghost btn-sm">
               Marcar nuevos
             </button>
-            <button (click)="seleccionar('MODIFIED', 'copy')" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="seleccionar('MODIFIED', 'copy')" class="btn-ghost btn-sm">
               Marcar modificados
             </button>
-            <button (click)="limpiar()" class="rounded bg-slate-700 px-2 py-1 hover:bg-slate-600">
+            <button (click)="limpiar()" class="btn-ghost btn-sm">
               Limpiar selección
             </button>
           </div>
 
-          <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-slate-800">
+          <div class="max-h-[50vh] overflow-y-auto rounded-xl border border-white/5">
             <table class="w-full text-sm">
               <tbody>
                 @for (f of d.files; track f.relPath) {
@@ -145,11 +173,11 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <button
               (click)="continuar()"
               [disabled]="busy()"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-primary"
             >
               Vista previa →
             </button>
-            <button (click)="step.set('month')" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <button (click)="step.set('month')" class="btn-ghost">
               ← Cambiar mes
             </button>
           </div>
@@ -159,7 +187,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
       <!-- Paso: preview -->
       @if (step() === 'preview' && plan(); as p) {
         <div class="space-y-4">
-          <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+          <div class="card p-5">
             <h2 class="mb-3 font-medium">Se ejecutarán estas acciones:</h2>
             <ul class="space-y-1 text-sm text-slate-300">
               <li>📄 Copiar archivos nuevos: <b>{{ p.summary.copy }}</b></li>
@@ -183,11 +211,11 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <button
               (click)="ejecutar()"
               [disabled]="busy() || p.summary.copy + p.summary.update + p.summary.mkdir === 0"
-              class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              class="btn-primary"
             >
               Ejecutar sincronización
             </button>
-            <button (click)="step.set('diff')" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <button (click)="step.set('diff')" class="btn-ghost">
               ← Volver a diferencias
             </button>
           </div>
@@ -196,7 +224,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 
       <!-- Paso: run -->
       @if (step() === 'run') {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
+        <div class="card p-6">
           <h2 class="mb-4 font-medium">Sincronizando…</h2>
           @if (progress(); as pr) {
             <div class="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-700">
@@ -217,7 +245,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 
       <!-- Paso: done -->
       @if (step() === 'done' && summary(); as s) {
-        <div class="rounded-xl border border-slate-800 bg-slate-800/40 p-6">
+        <div class="card p-6">
           <h2 class="mb-3 text-lg font-semibold text-emerald-300">Sincronización terminada</h2>
           <ul class="space-y-1 text-sm text-slate-300">
             <li>✓ {{ s.nCopied }} copiados</li>
@@ -235,7 +263,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             <a routerLink="/" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400">
               Hecho
             </a>
-            <a routerLink="/history" class="rounded-lg bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600">
+            <a routerLink="/history" class="btn-ghost">
               Ver historial
             </a>
           </div>
@@ -255,6 +283,7 @@ export class SyncWizardComponent implements OnDestroy {
   protected readonly plan = signal<SyncPlan | null>(null);
   protected readonly progress = signal<SyncProgress | null>(null);
   protected readonly summary = signal<RunSummary | null>(null);
+  protected readonly error = signal('');
 
   protected monthKey = currentMonthKey();
   private readonly decisions = signal<Record<string, FileDecision>>({});
@@ -262,12 +291,15 @@ export class SyncWizardComponent implements OnDestroy {
   private mappingId = '';
   private unsubProgress: (() => void) | null = null;
   private unsubDone: (() => void) | null = null;
+  private autoStarted = false;
 
   constructor() {
     this.mappingId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.mappingId) {
       void this.router.navigate(['/']);
+      return;
     }
+    queueMicrotask(() => void this.startCurrentMonthSync());
   }
 
   ngOnDestroy(): void {
@@ -285,20 +317,53 @@ export class SyncWizardComponent implements OnDestroy {
 
   protected async analizar(): Promise<void> {
     this.busy.set(true);
+    this.error.set('');
     try {
       const result = await this.ipc.scanDiff(this.mappingId, this.monthKey);
       this.diff.set(result);
-      const initial: Record<string, FileDecision> = {};
-      for (const f of result.files) {
-        if (f.status === 'NEW' || f.status === 'MODIFIED') {
-          initial[f.relPath] = 'copy';
-        }
-      }
-      this.decisions.set(initial);
+      this.decisions.set(this.defaultDecisions(result));
       this.step.set('diff');
+    } catch (e) {
+      this.error.set(`No se pudo analizar: ${String(e)}`);
     } finally {
       this.busy.set(false);
     }
+  }
+
+  protected async sincronizarRapido(): Promise<void> {
+    if (this.busy()) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const result = await this.ipc.scanDiff(this.mappingId, this.monthKey);
+      this.diff.set(result);
+      this.decisions.set(this.defaultDecisions(result));
+      const plan = await this.ipc.previewSync({
+        mappingId: this.mappingId,
+        monthKey: this.monthKey,
+        selections: this.selectedItems(),
+      });
+      this.plan.set(plan);
+      if (plan.summary.copy + plan.summary.update + plan.summary.mkdir === 0) {
+        this.step.set('preview');
+        return;
+      }
+      await this.ejecutar(false);
+    } catch (e) {
+      this.error.set(`No se pudo sincronizar: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async startCurrentMonthSync(): Promise<void> {
+    if (this.autoStarted) {
+      return;
+    }
+    this.autoStarted = true;
+    await this.sincronizarRapido();
   }
 
   protected toggle(file: FileDiff, checked: boolean): void {
@@ -339,31 +404,34 @@ export class SyncWizardComponent implements OnDestroy {
 
   protected async continuar(): Promise<void> {
     this.busy.set(true);
+    this.error.set('');
     try {
-      const decisions = this.decisions();
-      const selections = Object.keys(decisions).map((relPath) => ({
-        relPath,
-        decision: decisions[relPath],
-      }));
       const plan = await this.ipc.previewSync({
         mappingId: this.mappingId,
         monthKey: this.monthKey,
-        selections,
+        selections: this.selectedItems(),
       });
       this.plan.set(plan);
       this.step.set('preview');
+    } catch (e) {
+      this.error.set(`No se pudo preparar la vista previa: ${String(e)}`);
     } finally {
       this.busy.set(false);
     }
   }
 
-  protected async ejecutar(): Promise<void> {
+  protected async ejecutar(manageBusy = true): Promise<void> {
     const plan = this.plan();
     if (!plan) {
       return;
     }
+    if (manageBusy) {
+      this.busy.set(true);
+      this.error.set('');
+    }
     this.progress.set(null);
     this.step.set('run');
+    this.resetSyncSubscriptions();
     this.unsubProgress = this.ipc.onSyncProgress((p) => {
       if (p.runId === plan.id) {
         this.progress.set(p);
@@ -375,7 +443,15 @@ export class SyncWizardComponent implements OnDestroy {
         this.step.set('done');
       }
     });
-    await this.ipc.executeSync(plan);
+    try {
+      await this.ipc.executeSync(plan);
+    } catch (e) {
+      this.error.set(`No se pudo ejecutar la sincronización: ${String(e)}`);
+    } finally {
+      if (manageBusy) {
+        this.busy.set(false);
+      }
+    }
   }
 
   protected cancelar(): void {
@@ -402,5 +478,30 @@ export class SyncWizardComponent implements OnDestroy {
         ONLY_DRIVE: 'bg-sky-500/20 text-sky-300',
       }[status] ?? 'bg-slate-600/40 text-slate-400'
     );
+  }
+
+  private defaultDecisions(result: DiffResult): Record<string, FileDecision> {
+    const initial: Record<string, FileDecision> = {};
+    for (const f of result.files) {
+      if (f.status === 'NEW' || f.status === 'MODIFIED') {
+        initial[f.relPath] = 'copy';
+      }
+    }
+    return initial;
+  }
+
+  private selectedItems(): { relPath: string; decision: FileDecision }[] {
+    const decisions = this.decisions();
+    return Object.keys(decisions).map((relPath) => ({
+      relPath,
+      decision: decisions[relPath],
+    }));
+  }
+
+  private resetSyncSubscriptions(): void {
+    this.unsubProgress?.();
+    this.unsubDone?.();
+    this.unsubProgress = null;
+    this.unsubDone = null;
   }
 }

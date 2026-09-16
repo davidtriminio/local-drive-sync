@@ -1,21 +1,33 @@
 import { Component, inject, signal } from '@angular/core';
 import { IpcService } from '../services/ipc.service';
+import { IconComponent } from '../shared/icon.component';
 import { formatDateTime } from '../shared/format.util';
 import type { RunDetail, RunSummary } from '../../../shared/ipc-contract';
 
 @Component({
   selector: 'app-history',
   standalone: true,
+  imports: [IconComponent],
   template: `
     <section class="mx-auto max-w-4xl p-8">
-      <h1 class="mb-6 text-2xl font-semibold">Historial</h1>
+      <header class="mb-8 flex items-center gap-3">
+        <div
+          class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-600 text-white shadow-lg shadow-cyan-500/20"
+        >
+          <app-icon name="clock" [size]="24" />
+        </div>
+        <div>
+          <h1 class="page-title">Historial</h1>
+          <p class="text-sm text-slate-400">Sincronizaciones realizadas.</p>
+        </div>
+      </header>
 
       @if (runs().length === 0) {
         <p class="text-slate-500">Aún no hay sincronizaciones registradas.</p>
       } @else {
         <ul class="space-y-3">
           @for (r of runs(); track r.id) {
-            <li class="rounded-xl border border-slate-800 bg-slate-800/40 p-4">
+            <li class="card p-4">
               <button class="flex w-full items-center justify-between text-left" (click)="toggle(r)">
                 <div>
                   <div class="font-medium">{{ r.mappingName }} · {{ r.monthKey }}</div>

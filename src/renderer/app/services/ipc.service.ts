@@ -2,9 +2,19 @@ import { Injectable } from '@angular/core';
 import type {
   Api,
   AppSettings,
+  Client,
+  CreateBatchRequest,
+  CreateBatchResult,
+  CreateProjectRequest,
+  CreateProjectResult,
+  CreatorPrefs,
   DiffResult,
+  EventDraft,
+  EventItem,
   Mapping,
   MappingDraft,
+  NotificationsResult,
+  Platform,
   RunDetail,
   RunSummary,
   SyncPlan,
@@ -67,6 +77,57 @@ export class IpcService {
   }
   restoreTrash(trashId: string): Promise<void> {
     return this.api.restoreTrash(trashId);
+  }
+  listClients(): Promise<Client[]> {
+    return this.api.listClients();
+  }
+  setClientIcon(name: string, icon: string): Promise<Client[]> {
+    return this.api.setClientIcon(name, icon);
+  }
+  setClientColor(name: string, color: string): Promise<Client[]> {
+    return this.api.setClientColor(name, color);
+  }
+  deleteClient(name: string, mappingIds: string[]): Promise<Client[]> {
+    return this.api.deleteClient(name, mappingIds);
+  }
+  deleteClientProject(name: string, project: string): Promise<Client[]> {
+    return this.api.deleteClientProject(name, project);
+  }
+  listPlatforms(): Promise<Platform[]> {
+    return this.api.listPlatforms();
+  }
+  createProject(req: CreateProjectRequest): Promise<CreateProjectResult> {
+    return this.api.createProject(req);
+  }
+  createProjectBatch(req: CreateBatchRequest): Promise<CreateBatchResult> {
+    return this.api.createProjectBatch(req);
+  }
+  listEvents(): Promise<EventItem[]> {
+    return this.api.listEvents();
+  }
+  saveEvent(draft: EventDraft): Promise<EventItem[]> {
+    return this.api.saveEvent(draft);
+  }
+  deleteEvent(id: string): Promise<EventItem[]> {
+    return this.api.deleteEvent(id);
+  }
+  checkNotifications(): Promise<NotificationsResult> {
+    return this.api.checkNotifications();
+  }
+  markNotificationRead(
+    mappingId: string,
+    signature: string,
+  ): Promise<NotificationsResult> {
+    return this.api.markNotificationRead(mappingId, signature);
+  }
+  markAllNotificationsRead(): Promise<NotificationsResult> {
+    return this.api.markAllNotificationsRead();
+  }
+  getCreatorPrefs(): Promise<CreatorPrefs> {
+    return this.api.getCreatorPrefs();
+  }
+  setCreatorBasePath(basePath: string): Promise<void> {
+    return this.api.setCreatorBasePath(basePath);
   }
   onSyncProgress(cb: (p: SyncProgress) => void): () => void {
     return this.api.onSyncProgress(cb);

@@ -1,0 +1,19 @@
+{
+  "Instagram": {
+    "sigla": "ig",
+    "formats": {
+      "Publicación normal": "1080x1080",
+      "Story": "1080x1920",
+      "Logo": "720x720"
+    }
+  },
+  "Facebook": {
+    "sigla": "fb",
+    "formats": {
+      "Feed": "1200x1200",
+      "Story": "1080x1920",
+      "Cover": "820x312",
+      "Event": "1336x700"
+    }
+  }
+}
