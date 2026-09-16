@@ -12,6 +12,7 @@ import {
   type EventItem,
   type Mapping,
   type Platform,
+  type PlatformFormatSelection,
 } from '../../../shared/ipc-contract';
 
 interface Appearance {
@@ -247,24 +248,35 @@ interface Appearance {
         <!-- Plataformas -->
         <div>
           <label class="mb-2 block text-sm font-medium text-slate-300">
-            Plataformas
-            <span class="text-slate-500">(un PSD base por plataforma)</span>
+            Formatos
+            <span class="text-slate-500">(un PSD base por tamaño)</span>
           </label>
           @if (platforms().length === 0) {
             <p class="text-xs text-slate-500">No hay plataformas configuradas.</p>
           } @else {
-            <div class="flex flex-wrap gap-2">
+            <div class="space-y-3">
               @for (p of platforms(); track p.name) {
-                <button
-                  (click)="togglePlatform(p.name)"
-                  [class]="toggleClass(selectedPlatforms().has(p.name))"
-                >
-                  <app-icon
-                    [name]="selectedPlatforms().has(p.name) ? 'check' : 'image'"
-                    [size]="16"
-                  />
-                  {{ p.name }}
-                </button>
+                <div>
+                  <div class="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {{ p.name }}
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    @for (f of formatEntries(p); track f.name) {
+                      <button
+                        type="button"
+                        (click)="toggleFormat(p.name, f.name)"
+                        [class]="toggleClass(selectedFormats().has(formatKey(p.name, f.name)))"
+                      >
+                        <app-icon
+                          [name]="selectedFormats().has(formatKey(p.name, f.name)) ? 'check' : 'image'"
+                          [size]="16"
+                        />
+                        <span>{{ f.name }}</span>
+                        <span class="text-xs opacity-70">{{ f.size }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
               }
             </div>
           }
@@ -407,6 +419,7 @@ export class ProjectCreatorComponent {
   protected readonly clients = signal<Client[]>([]);
   protected readonly platforms = signal<Platform[]>([]);
   protected readonly selectedPlatforms = signal<Set<string>>(new Set());
+  protected readonly selectedFormats = signal<Set<string>>(new Set());
   protected readonly selectedSubfolders = signal<Set<string>>(
     new Set(DEFAULT_SUBFOLDERS),
   );
@@ -480,6 +493,7 @@ export class ProjectCreatorComponent {
           : platforms.map((p) => p.name),
       ),
     );
+    this.selectedFormats.set(this.initialFormatSelection(platforms, prefs.formats));
     this.selectedSubfolders.set(
       new Set(
         prefs.subfolders.length > 0 ? prefs.subfolders : DEFAULT_SUBFOLDERS,
@@ -613,6 +627,25 @@ export class ProjectCreatorComponent {
     this.selectedPlatforms.set(next);
   }
 
+  protected formatEntries(platform: Platform): { name: string; size: string }[] {
+    const entries = Object.entries(platform.formats ?? {});
+    return entries.length > 0
+      ? entries.map(([name, size]) => ({ name, size }))
+      : [{ name: platform.name, size: '' }];
+  }
+
+  protected formatKey(platform: string, format: string): string {
+    return `${platform}::${format}`;
+  }
+
+  protected toggleFormat(platform: string, format: string): void {
+    const key = this.formatKey(platform, format);
+    const next = new Set(this.selectedFormats());
+    next.has(key) ? next.delete(key) : next.add(key);
+    this.selectedFormats.set(next);
+    this.selectedPlatforms.set(new Set(this.selectedFormatSelections().map((f) => f.platform)));
+  }
+
   protected toggleSubfolder(name: string): void {
     const next = new Set(this.selectedSubfolders());
     next.has(name) ? next.delete(name) : next.add(name);
@@ -695,6 +728,11 @@ export class ProjectCreatorComponent {
       this.error.set('Selecciona al menos un tipo de archivo (PSD o AI).');
       return;
     }
+    const formats = this.selectedFormatSelections();
+    if (this.psd && formats.length === 0) {
+      this.error.set('Selecciona al menos un formato PSD.');
+      return;
+    }
 
     this.busy.set(true);
     try {
@@ -703,7 +741,8 @@ export class ProjectCreatorComponent {
         project: this.project.trim(),
         basePath: this.basePath.trim(),
         fileTypes,
-        platforms: [...this.selectedPlatforms()],
+        platforms: this.selectedPlatformNames(formats),
+        formats,
         subfolders: [...this.selectedSubfolders()],
         eventId: this.selectedEventId(),
         date: this.effectiveEventDate(),
@@ -750,6 +789,11 @@ export class ProjectCreatorComponent {
       this.error.set('Selecciona al menos un tipo de archivo (PSD o AI).');
       return;
     }
+    const formats = this.selectedFormatSelections();
+    if (this.psd && formats.length === 0) {
+      this.error.set('Selecciona al menos un formato PSD.');
+      return;
+    }
 
     this.busy.set(true);
     try {
@@ -758,7 +802,8 @@ export class ProjectCreatorComponent {
         project: this.project.trim(),
         basePath: this.basePath.trim(),
         fileTypes,
-        platforms: [...this.selectedPlatforms()],
+        platforms: this.selectedPlatformNames(formats),
+        formats,
         subfolders: [...this.selectedSubfolders()],
         clientIcon: this.clientIcon,
         clientColor: this.clientColor,
@@ -779,5 +824,37 @@ export class ProjectCreatorComponent {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private initialFormatSelection(platforms: Platform[], saved: string[]): Set<string> {
+    if (saved.length > 0) {
+      return new Set(saved);
+    }
+    const selected = new Set<string>();
+    for (const platform of platforms) {
+      const first = this.formatEntries(platform)[0];
+      if (first) {
+        selected.add(this.formatKey(platform.name, first.name));
+      }
+    }
+    return selected;
+  }
+
+  private selectedFormatSelections(): PlatformFormatSelection[] {
+    return [...this.selectedFormats()].map((key) => {
+      const [platform, format] = key.split('::');
+      const found = this.platforms().find((p) => p.name === platform);
+      return {
+        platform,
+        format,
+        size: found?.formats?.[format] ?? '',
+      };
+    });
+  }
+
+  private selectedPlatformNames(
+    formats: PlatformFormatSelection[],
+  ): string[] {
+    return [...new Set(formats.map((f) => f.platform))];
   }
 }

@@ -238,8 +238,15 @@ export interface CreatorPrefs {
   basePath: string;
   fileTypes: ('psd' | 'ai')[];
   platforms: string[];
+  formats: string[];
   subfolders: string[];
   lastClient: string;
+}
+
+export interface PlatformFormatSelection {
+  platform: string;
+  format: string;
+  size: string;
 }
 
 /** Petición para crear un proyecto gráfico. */
@@ -252,6 +259,8 @@ export interface CreateProjectRequest {
   fileTypes: ('psd' | 'ai')[];
   /** Nombres de plataformas seleccionadas (ej. "Instagram"). */
   platforms: string[];
+  /** Formatos/tamaños seleccionados para copiar PSD específicos. */
+  formats?: PlatformFormatSelection[];
   /** Subcarpetas a crear; si se omite, se crean todas. */
   subfolders?: string[];
   /** Fecha (AAAA-MM-DD) para el nombre de carpeta; por defecto hoy. */
@@ -362,6 +371,7 @@ export interface CreateBatchRequest {
   basePath: string;
   fileTypes: ('psd' | 'ai')[];
   platforms: string[];
+  formats?: PlatformFormatSelection[];
   subfolders?: string[];
   /** Evento asociado (solo informativo/preselección). */
   eventId?: string;
