@@ -11,6 +11,7 @@ import type {
   DiffResult,
   EventDraft,
   EventItem,
+  ExportActivity,
   Mapping,
   MappingDraft,
   NotificationsResult,
@@ -38,6 +39,9 @@ export class IpcService {
   }
   pickFolder(): Promise<string | null> {
     return this.api.pickFolder();
+  }
+  openPath(fullPath: string): Promise<void> {
+    return this.api.openPath(fullPath);
   }
   listMappings(): Promise<Mapping[]> {
     return this.api.listMappings();
@@ -137,5 +141,8 @@ export class IpcService {
   }
   onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void {
     return this.api.onFullScreenChange(cb);
+  }
+  onExportActivity(cb: (activity: ExportActivity) => void): () => void {
+    return this.api.onExportActivity(cb);
   }
 }

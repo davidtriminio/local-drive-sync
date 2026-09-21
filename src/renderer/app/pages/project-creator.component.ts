@@ -346,6 +346,15 @@ interface Appearance {
           >
             <app-icon name="check" [size]="18" /> Proyecto creado:
             <code class="font-mono">{{ success() }}</code>
+            @if (successPath()) {
+              <button
+                (click)="openFolder(successPath())"
+                title="Abrir carpeta del proyecto"
+                class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+              >
+                <app-icon name="folderOpen" [size]="15" /> Abrir carpeta
+              </button>
+            }
           </div>
         }
 
@@ -363,6 +372,15 @@ interface Appearance {
                     <code class="font-mono text-xs text-slate-500 normal-case">
                       {{ r.folderName }}
                     </code>
+                    @if (r.projectPath) {
+                      <button
+                        (click)="openFolder(r.projectPath)"
+                        title="Abrir carpeta del proyecto"
+                        class="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-emerald-300/80 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200"
+                      >
+                        <app-icon name="folderOpen" [size]="14" />
+                      </button>
+                    }
                   }
                   @case ('duplicate') {
                     <app-icon name="alert" [size]="15" class="text-amber-400" />
@@ -425,6 +443,8 @@ export class ProjectCreatorComponent {
   );
   protected readonly error = signal('');
   protected readonly success = signal('');
+  /** Ruta absoluta del último proyecto creado (para abrir su carpeta). */
+  protected readonly successPath = signal('');
   protected readonly duplicateFolder = signal('');
   protected readonly busy = signal(false);
   protected readonly showIconPicker = signal(false);
@@ -763,9 +783,17 @@ export class ProjectCreatorComponent {
     }
   }
 
+  /** Abre en el explorador la carpeta de un proyecto recién creado. */
+  protected openFolder(fullPath: string | undefined): void {
+    if (fullPath) {
+      void this.ipc.openPath(fullPath);
+    }
+  }
+
   protected async create(confirmDuplicate: boolean): Promise<void> {
     this.error.set('');
     this.success.set('');
+    this.successPath.set('');
     if (!confirmDuplicate) {
       this.duplicateFolder.set('');
     }
@@ -816,6 +844,7 @@ export class ProjectCreatorComponent {
       }
 
       this.success.set(result.folderName ?? '');
+      this.successPath.set(result.projectPath ?? '');
       this.duplicateFolder.set('');
       this.project = '';
       await this.load();

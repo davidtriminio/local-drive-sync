@@ -8,6 +8,8 @@ export const IpcChannels = {
   windowToggleFullScreen: 'window:toggleFullScreen',
   windowFullScreenChanged: 'window:fullScreenChanged',
   dialogPickFolder: 'dialog:pickFolder',
+  shellOpenPath: 'shell:openPath',
+  exportActivity: 'export:activity',
   mappingsList: 'mappings:list',
   mappingsSave: 'mappings:save',
   mappingsDelete: 'mappings:delete',
@@ -203,6 +205,31 @@ export interface AppSettings {
   defaultExclusions: string[];
   preferredMonthFormat: MonthFormat;
   copyConcurrency: number;
+  /** Al cerrar la ventana (X), ocultarla en la bandeja en vez de salir. */
+  minimizeToTray: boolean;
+  /** Vigilar una carpeta de export y mover lo nuevo a la carpeta local. */
+  exportWatchEnabled: boolean;
+  /** Carpeta que se vigila mientras la app está abierta. */
+  exportWatchFolder: string;
+}
+
+/**
+ * Aviso de la vigilancia de la carpeta de export. `moved` cuando un archivo se
+ * movió a la carpeta local de una empresa; `unmatched` cuando ningún mapeo
+ * coincidió con el prefijo del nombre; `error` ante un fallo al mover.
+ */
+export interface ExportActivity {
+  kind: 'moved' | 'unmatched' | 'error';
+  /** Nombre del archivo detectado en la carpeta de export. */
+  file: string;
+  /** Nombre del mapeo/empresa que coincidió (solo `moved`). */
+  mapping?: string;
+  /** Ruta destino final (solo `moved`). */
+  dest?: string;
+  /** Detalle del problema (`unmatched` / `error`). */
+  message?: string;
+  /** Marca de tiempo ISO. */
+  at: string;
 }
 
 // --- Creador de proyectos gráficos ---
@@ -387,6 +414,8 @@ export interface BatchClientResult {
   client: string;
   status: 'created' | 'duplicate' | 'error';
   folderName?: string;
+  /** Ruta absoluta creada (solo si status === 'created'). */
+  projectPath?: string;
   existingFolder?: string;
   error?: string;
 }
@@ -417,6 +446,8 @@ export interface Api {
   /** Alterna pantalla completa; devuelve el nuevo estado. */
   toggleFullScreen(): Promise<boolean>;
   pickFolder(): Promise<string | null>;
+  /** Abre una carpeta/archivo en el explorador del sistema. */
+  openPath(fullPath: string): Promise<void>;
   listMappings(): Promise<Mapping[]>;
   saveMapping(draft: MappingDraft): Promise<Mapping>;
   deleteMapping(id: string): Promise<void>;
@@ -474,4 +505,6 @@ export interface Api {
   onSyncDone(cb: (s: RunSummary) => void): () => void;
   /** Notifica cambios de pantalla completa (F11, botón o nativo). */
   onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void;
+  /** Avisos de la vigilancia de la carpeta de export (mover, sin match, error). */
+  onExportActivity(cb: (activity: ExportActivity) => void): () => void;
 }
