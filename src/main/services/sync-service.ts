@@ -87,6 +87,15 @@ export class SyncService {
     return { resolved: current, exists: fs.existsSync(current) };
   }
 
+  /**
+   * Resuelve la carpeta local de un mapeo para un mes dado (token {mes} ya
+   * sustituido). No garantiza que exista; la usa el vigilante de export para
+   * saber a dónde mover los archivos entrantes.
+   */
+  resolveLocalDir(mapping: Mapping, monthKey: string): string {
+    return this.resolveSide(mapping.localPattern, monthKey, mapping).resolved;
+  }
+
   private buildScanner(mapping: Mapping): Scanner {
     const settings = this.repo.getSettings();
     const patterns = [...settings.defaultExclusions, ...mapping.exclusions];

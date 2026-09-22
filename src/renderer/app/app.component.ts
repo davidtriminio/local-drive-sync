@@ -3,12 +3,21 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IpcService } from './services/ipc.service';
 import { NotificationsStore } from './services/notifications.store';
 import { IconComponent } from './shared/icon.component';
+import type { ExportActivity } from '../../shared/ipc-contract';
 
 interface NavItem {
   path: string;
   label: string;
   icon: string;
   exact: boolean;
+}
+
+/** Aviso transitorio mostrado tras mover (o no) un archivo de export. */
+interface ExportToast {
+  id: number;
+  kind: ExportActivity['kind'];
+  icon: string;
+  text: string;
 }
 
 /** Shell de la aplicación: barra lateral de navegación + outlet de rutas. */
@@ -73,6 +82,27 @@ interface NavItem {
       <main class="flex-1 overflow-y-auto">
         <router-outlet />
       </main>
+
+      <!-- Avisos de la vigilancia de la carpeta de export -->
+      @if (toasts().length > 0) {
+        <div class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
+          @for (t of toasts(); track t.id) {
+            <div
+              class="pointer-events-auto flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm shadow-xl shadow-black/30 backdrop-blur"
+              [class]="toastClass(t.kind)"
+            >
+              <app-icon [name]="t.icon" [size]="18" class="mt-0.5 shrink-0" />
+              <span class="flex-1">{{ t.text }}</span>
+              <button
+                (click)="dismissToast(t.id)"
+                class="shrink-0 opacity-60 transition-opacity hover:opacity-100"
+              >
+                <app-icon name="x" [size]="15" />
+              </button>
+            </div>
+          }
+        </div>
+      }
     </div>
   `,
   styles: [
@@ -92,8 +122,11 @@ export class AppComponent implements OnDestroy {
   protected readonly notifications = inject(NotificationsStore);
   protected readonly version = signal('—');
   protected readonly fullScreen = signal(false);
+  protected readonly toasts = signal<ExportToast[]>([]);
+  private toastSeq = 0;
   private readonly unsubFullScreen: () => void;
   private readonly unsubSyncDone: () => void;
+  private readonly unsubExport: () => void;
 
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: 'layers', exact: true },
@@ -126,15 +159,59 @@ export class AppComponent implements OnDestroy {
     this.unsubSyncDone = this.ipc.onSyncDone(() => {
       void this.notifications.refresh();
     });
+
+    // Avisos de la vigilancia de la carpeta de export.
+    this.unsubExport = this.ipc.onExportActivity((a) => this.pushToast(a));
   }
 
   ngOnDestroy(): void {
     this.unsubFullScreen();
     this.unsubSyncDone();
+    this.unsubExport();
   }
 
   protected toggleFullScreen(): void {
     // El estado del botón lo actualiza el evento onFullScreenChange.
     void this.ipc.toggleFullScreen();
+  }
+
+  /** Muestra un aviso de export y lo retira solo tras unos segundos. */
+  private pushToast(a: ExportActivity): void {
+    const id = ++this.toastSeq;
+    const toast: ExportToast = {
+      id,
+      kind: a.kind,
+      icon:
+        a.kind === 'moved' ? 'check' : a.kind === 'unmatched' ? 'alert' : 'x',
+      text: this.toastText(a),
+    };
+    this.toasts.update((list) => [...list, toast]);
+    setTimeout(() => this.dismissToast(id), a.kind === 'moved' ? 5000 : 8000);
+  }
+
+  private toastText(a: ExportActivity): string {
+    switch (a.kind) {
+      case 'moved':
+        return `Movido «${a.file}» → ${a.mapping}`;
+      case 'unmatched':
+        return `«${a.file}»: ningún mapeo coincide con el prefijo del nombre.`;
+      default:
+        return `Error al mover «${a.file}»: ${a.message}`;
+    }
+  }
+
+  protected dismissToast(id: number): void {
+    this.toasts.update((list) => list.filter((t) => t.id !== id));
+  }
+
+  protected toastClass(kind: ExportActivity['kind']): string {
+    switch (kind) {
+      case 'moved':
+        return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
+      case 'unmatched':
+        return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
+      default:
+        return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
+    }
   }
 }

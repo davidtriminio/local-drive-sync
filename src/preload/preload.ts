@@ -6,6 +6,7 @@ import {
   type CreateBatchRequest,
   type CreateProjectRequest,
   type EventDraft,
+  type ExportActivity,
   type MappingDraft,
   type SyncPlan,
   type SyncPreviewRequest,
@@ -22,6 +23,8 @@ const api: Api = {
   toggleFullScreen: () =>
     ipcRenderer.invoke(IpcChannels.windowToggleFullScreen),
   pickFolder: () => ipcRenderer.invoke(IpcChannels.dialogPickFolder),
+  openPath: (fullPath: string) =>
+    ipcRenderer.invoke(IpcChannels.shellOpenPath, fullPath),
   listMappings: () => ipcRenderer.invoke(IpcChannels.mappingsList),
   saveMapping: (draft: MappingDraft) =>
     ipcRenderer.invoke(IpcChannels.mappingsSave, draft),
@@ -88,6 +91,12 @@ const api: Api = {
     ipcRenderer.on(IpcChannels.windowFullScreenChanged, listener);
     return () =>
       ipcRenderer.removeListener(IpcChannels.windowFullScreenChanged, listener);
+  },
+  onExportActivity: (cb: (activity: ExportActivity) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: ExportActivity): void =>
+      cb(payload);
+    ipcRenderer.on(IpcChannels.exportActivity, listener);
+    return () => ipcRenderer.removeListener(IpcChannels.exportActivity, listener);
   },
 };
 

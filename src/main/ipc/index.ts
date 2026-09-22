@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import {
   IpcChannels,
   type Mapping,
@@ -11,6 +11,7 @@ import {
   type CreateProjectRequest,
   type EventDraft,
   type EventItem,
+  type ExportActivity,
   type SyncPlan,
   type SyncPreviewRequest,
   type SyncProgress,
@@ -18,6 +19,7 @@ import {
 import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
+import { ExportWatcher } from '../domain/export-watcher';
 import { ProjectCreator, sanitizeName } from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
@@ -32,8 +34,16 @@ export interface IpcContext {
   dataDir: string;
 }
 
+/** Handles que el proceso main necesita tras registrar los handlers IPC. */
+export interface IpcHandles {
+  /** true si al cerrar la ventana debe ocultarse a la bandeja en vez de salir. */
+  shouldMinimizeToTray: () => boolean;
+  /** Detiene la vigilancia de la carpeta de export (al salir de verdad). */
+  stopExportWatcher: () => void;
+}
+
 /** Registra todos los handlers IPC del proceso main. */
-export function registerIpcHandlers(ctx: IpcContext): void {
+export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   const repo = new Repository(ctx.dataDir);
   const trashRoot = path.join(ctx.dataDir, 'trash');
   const syncService = new SyncService(repo, trashRoot);
@@ -55,7 +65,19 @@ export function registerIpcHandlers(ctx: IpcContext): void {
     ctx.getWindow()?.webContents.send(channel, payload);
   };
 
+  // Vigilancia de la carpeta de export (mueve lo nuevo a la carpeta local).
+  const exportWatcher = new ExportWatcher(
+    repo,
+    syncService,
+    (activity: ExportActivity) => emit(IpcChannels.exportActivity, activity),
+  );
+  exportWatcher.reconfigure();
+
   ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion());
+
+  ipcMain.handle(IpcChannels.shellOpenPath, async (_e, fullPath: string) => {
+    await shell.openPath(fullPath);
+  });
 
   ipcMain.handle(IpcChannels.windowToggleFullScreen, () => {
     const win = ctx.getWindow();
@@ -101,9 +123,12 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   });
 
   ipcMain.handle(IpcChannels.settingsGet, () => repo.getSettings());
-  ipcMain.handle(IpcChannels.settingsSet, (_e, settings: AppSettings) =>
-    repo.setSettings(settings),
-  );
+  ipcMain.handle(IpcChannels.settingsSet, (_e, settings: AppSettings) => {
+    const saved = repo.setSettings(settings);
+    // Reacciona a cambios de la carpeta/estado de vigilancia al instante.
+    exportWatcher.reconfigure();
+    return saved;
+  });
 
   ipcMain.handle(IpcChannels.scanDiff, (_e, mappingId: string, monthKey: string) =>
     syncService.scanDiff(mappingId, monthKey),
@@ -245,6 +270,7 @@ export function registerIpcHandlers(ctx: IpcContext): void {
             client,
             status: 'created',
             folderName: result.folderName,
+            projectPath: result.projectPath,
           });
         } catch (err) {
           results.push({ client, status: 'error', error: String(err) });
@@ -325,4 +351,9 @@ export function registerIpcHandlers(ctx: IpcContext): void {
   ipcMain.handle(IpcChannels.creatorSetBasePath, (_e, basePath: string) => {
     repo.setCreatorBasePath(basePath);
   });
+
+  return {
+    shouldMinimizeToTray: () => repo.getSettings().minimizeToTray,
+    stopExportWatcher: () => exportWatcher.stop(),
+  };
 }

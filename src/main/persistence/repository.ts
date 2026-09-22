@@ -33,6 +33,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultExclusions: ['Thumbs.db', 'desktop.ini', '.DS_Store', '*.tmp', '*.bak'],
   preferredMonthFormat: 'Mes-Año',
   copyConcurrency: 3,
+  minimizeToTray: true,
+  exportWatchEnabled: false,
+  exportWatchFolder: '',
 };
 
 const DEFAULT_CREATOR_PREFS: CreatorPrefs = {
