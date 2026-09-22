@@ -146,7 +146,8 @@ export class ExportWatcher {
     try {
       const destDir = this.sync.resolveLocalDir(mapping, this.currentMonthKey());
       fs.mkdirSync(destDir, { recursive: true });
-      const dest = this.freeName(destDir, name);
+      // Reexportar el mismo arte reemplaza la versión previa (no crea copias).
+      const dest = path.join(destDir, name);
       this.moveFile(full, dest);
       this.emit({
         kind: 'moved',
@@ -189,23 +190,11 @@ export class ExportWatcher {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  /** Nombre destino libre; si colisiona añade _2, _3… antes de la extensión. */
-  private freeName(dir: string, name: string): string {
-    let candidate = path.join(dir, name);
-    if (!fs.existsSync(candidate)) {
-      return candidate;
-    }
-    const ext = path.extname(name);
-    const base = path.basename(name, ext);
-    let n = 2;
-    do {
-      candidate = path.join(dir, `${base}_${n}${ext}`);
-      n += 1;
-    } while (fs.existsSync(candidate));
-    return candidate;
-  }
-
-  /** Mueve con rename; si cruza volúmenes (EXDEV) copia y borra el origen. */
+  /**
+   * Mueve `src` a `dest` reemplazando si ya existe. `renameSync` sobrescribe el
+   * destino (también en Windows); si cruza volúmenes (EXDEV) copia encima y
+   * borra el origen (`copyFileSync` sobrescribe por defecto).
+   */
   private moveFile(src: string, dest: string): void {
     try {
       fs.renameSync(src, dest);
