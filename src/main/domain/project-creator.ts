@@ -30,10 +30,31 @@ function sanitizeKey(name: string): string {
 }
 
 /**
+ * Si la ruta no usa `{mes}` pero contiene una carpeta con nombre de mes
+ * (p. ej. "...\Septiembre-2026", típico al elegirla con el selector), la
+ * última de esas carpetas se sustituye por `{mes}` para que rote sola.
+ */
+export function toMonthTemplate(basePath: string): string {
+  if (!basePath || /\{mes\}/i.test(basePath)) {
+    return basePath;
+  }
+  const normalizer = new MonthNormalizer();
+  const parts = basePath.split(/([\\/]+)/); // conserva los separadores
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (parts[i] && !/^[\\/]+$/.test(parts[i]) && normalizer.toKey(parts[i])) {
+      parts[i] = '{mes}';
+      return parts.join('');
+    }
+  }
+  return basePath;
+}
+
+/**
  * Resuelve el token `{mes}` de una ruta al mes actual (formato "Mes-Año",
  * p. ej. "Septiembre-2026"). Si no hay token, devuelve la ruta sin cambios.
  */
 export function resolveMonthToken(basePath: string, date?: string): string {
+  basePath = toMonthTemplate(basePath);
   if (!/\{mes\}/i.test(basePath)) {
     return basePath;
   }

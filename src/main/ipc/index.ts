@@ -20,7 +20,7 @@ import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ExportWatcher } from '../domain/export-watcher';
-import { ProjectCreator, sanitizeName } from '../domain/project-creator';
+import { ProjectCreator, sanitizeName, toMonthTemplate } from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
 import { importLegacyClients } from '../domain/legacy-import';
@@ -346,10 +346,13 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
     return checkNotifications(repo, syncService);
   });
 
-  ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());
+  ipcMain.handle(IpcChannels.creatorPrefsGet, () => {
+    const prefs = repo.getCreatorPrefs();
+    return { ...prefs, basePath: toMonthTemplate(prefs.basePath) };
+  });
 
   ipcMain.handle(IpcChannels.creatorSetBasePath, (_e, basePath: string) => {
-    repo.setCreatorBasePath(basePath);
+    repo.setCreatorBasePath(toMonthTemplate(basePath));
   });
 
   return {
