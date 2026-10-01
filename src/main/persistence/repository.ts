@@ -11,6 +11,7 @@ import type {
   TrashEntry,
 } from '../../shared/ipc-contract';
 import type { IndexEntry } from '../domain/comparator';
+import { detectMonthFormat, toMonthTemplate } from '../domain/project-creator';
 
 interface Database {
   mappings: Mapping[];
@@ -27,6 +28,8 @@ interface Database {
   notifAcks: Record<string, string>;
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
   index: Record<string, Record<string, IndexEntry>>;
+  /** Último mes (AAAA-MM) que la app vio; detecta el cambio de mes. */
+  lastMonthSeen: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -58,6 +61,7 @@ function emptyDb(): Database {
     creatorPrefs: { ...DEFAULT_CREATOR_PREFS },
     notifAcks: {},
     index: {},
+    lastMonthSeen: '',
   };
 }
 
@@ -75,6 +79,7 @@ export class Repository {
   constructor(dataDir: string) {
     this.file = path.join(dataDir, 'local-drive-sync.json');
     this.db = this.load();
+    this.migrateMonthPatterns();
   }
 
   private load(): Database {
@@ -89,6 +94,41 @@ export class Repository {
       };
     } catch {
       return emptyDb();
+    }
+  }
+
+  /**
+   * Los mapeos guardados con el mes escrito a mano (p. ej. "...\Septiembre-2026")
+   * nunca rotan: se convierten a `{mes}` conservando el estilo del nombre.
+   */
+  private migrateMonthPatterns(): void {
+    let changed = false;
+    this.db.mappings = this.db.mappings.map((m) => {
+      const localPattern = toMonthTemplate(m.localPattern);
+      const drivePattern = toMonthTemplate(m.drivePattern);
+      if (localPattern === m.localPattern && drivePattern === m.drivePattern) {
+        return m;
+      }
+      changed = true;
+      const monthFormat =
+        detectMonthFormat(m.drivePattern) ??
+        detectMonthFormat(m.localPattern) ??
+        m.monthFormat;
+      return { ...m, localPattern, drivePattern, monthFormat };
+    });
+    if (changed) {
+      this.persist();
+    }
+  }
+
+  getLastMonthSeen(): string {
+    return this.db.lastMonthSeen;
+  }
+
+  setLastMonthSeen(monthKey: string): void {
+    if (this.db.lastMonthSeen !== monthKey) {
+      this.db.lastMonthSeen = monthKey;
+      this.persist();
     }
   }
 

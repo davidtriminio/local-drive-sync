@@ -7,6 +7,7 @@ import {
   type CreateProjectRequest,
   type EventDraft,
   type ExportActivity,
+  type MonthChangeNotice,
   type MappingDraft,
   type SyncPlan,
   type SyncPreviewRequest,
@@ -97,6 +98,12 @@ const api: Api = {
       cb(payload);
     ipcRenderer.on(IpcChannels.exportActivity, listener);
     return () => ipcRenderer.removeListener(IpcChannels.exportActivity, listener);
+  },
+  onMonthChanged: (cb: (notice: MonthChangeNotice) => void) => {
+    const listener = (_e: IpcRendererEvent, payload: MonthChangeNotice): void =>
+      cb(payload);
+    ipcRenderer.on(IpcChannels.monthChanged, listener);
+    return () => ipcRenderer.removeListener(IpcChannels.monthChanged, listener);
   },
 };
 

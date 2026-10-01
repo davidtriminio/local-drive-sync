@@ -5,6 +5,7 @@ import {
   DEFAULT_SUBFOLDERS,
   type CreateProjectRequest,
   type CreateProjectResult,
+  type MonthFormat,
   type PlatformFormatSelection,
   type Platform,
 } from '../../shared/ipc-contract';
@@ -47,6 +48,27 @@ export function toMonthTemplate(basePath: string): string {
     }
   }
   return basePath;
+}
+
+/**
+ * Formato de mes (el de la carpeta que `toMonthTemplate` sustituiría) para que
+ * las carpetas nuevas conserven el mismo estilo de nombre; null si no hay.
+ */
+export function detectMonthFormat(basePath: string): MonthFormat | null {
+  if (!basePath || /\{mes\}/i.test(basePath)) {
+    return null;
+  }
+  const normalizer = new MonthNormalizer();
+  const parts = basePath.split(/[\\/]+/);
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (parts[i] && normalizer.toKey(parts[i])) {
+      if (/[a-z]/i.test(parts[i])) {
+        return 'Mes-Año';
+      }
+      return /^\d{4}/.test(parts[i].trim()) ? 'AAAA-MM' : 'MM-AAAA';
+    }
+  }
+  return null;
 }
 
 /**
