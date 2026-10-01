@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { IconPickerComponent } from '../shared/icon-picker.component';
 import { ColorPickerComponent } from '../shared/color-picker.component';
-import { badgeStyle, chipStyle, DEFAULT_COLOR } from '../shared/colors';
+import { EventDialogComponent } from '../shared/event-dialog.component';
+import { badgeStyle, chipStyle } from '../shared/colors';
 import type { Client, EventDraft, EventItem } from '../../../shared/ipc-contract';
 
 const MONTHS = [
@@ -22,14 +22,6 @@ const MONTHS = [
   'Diciembre',
 ];
 
-/** Fecha de hoy en AAAA-MM-DD (para el valor por defecto del modal). */
-function todayIso(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
 /**
  * Gestión de eventos y feriados: catálogo integrado de Honduras + eventos
  * personalizados. Cada evento puede asociarse a uno o varios clientes; esa
@@ -40,10 +32,10 @@ function todayIso(): string {
   selector: 'app-events',
   standalone: true,
   imports: [
-    FormsModule,
     IconComponent,
     IconPickerComponent,
     ColorPickerComponent,
+    EventDialogComponent,
   ],
   template: `
     <section class="mx-auto max-w-3xl p-8">
@@ -153,61 +145,12 @@ function todayIso(): string {
       </div>
     </section>
 
-    <!-- Modal: evento personalizado (solo nombre + fecha) -->
     @if (showNew()) {
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-        (click)="closeNew()"
-      >
-        <div
-          class="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
-          (click)="$event.stopPropagation()"
-        >
-          <div class="mb-4 flex items-center gap-3">
-            <div
-              class="flex h-10 w-10 items-center justify-center rounded-xl"
-              [style]="chip(DEFAULT_COLOR)"
-            >
-              <app-icon name="calendar" [size]="20" />
-            </div>
-            <h2 class="text-lg font-semibold">Nuevo evento</h2>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">
-                Nombre del evento
-              </label>
-              <input
-                [(ngModel)]="draftName"
-                class="field"
-                placeholder="Ej. Aniversario del cliente"
-                autofocus
-              />
-            </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-medium text-slate-300">
-                Fecha
-              </label>
-              <input type="date" [(ngModel)]="draftDate" class="field" />
-              <p class="mt-1.5 text-xs text-slate-500">
-                Se usa para nombrar las carpetas y archivos del lote.
-              </p>
-            </div>
-
-            @if (formError()) {
-              <p class="text-sm text-rose-300">{{ formError() }}</p>
-            }
-
-            <div class="flex justify-end gap-2 pt-1">
-              <button (click)="closeNew()" class="btn-ghost">Cancelar</button>
-              <button (click)="createEvent()" class="btn-primary">
-                <app-icon name="check" [size]="16" /> Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <app-event-dialog
+        [clients]="clients()"
+        (save)="createEvent($event)"
+        (cancel)="closeNew()"
+      />
     }
   `,
 })
@@ -218,15 +161,9 @@ export class EventsComponent {
   protected readonly clients = signal<Client[]>([]);
   protected readonly appearanceId = signal('');
   protected readonly showNew = signal(false);
-  protected readonly formError = signal('');
 
   protected readonly badge = badgeStyle;
   protected readonly chip = chipStyle;
-  protected readonly DEFAULT_COLOR = DEFAULT_COLOR;
-
-  // Modal de evento personalizado.
-  protected draftName = '';
-  protected draftDate = todayIso();
 
   constructor() {
     void this.load();
@@ -253,9 +190,6 @@ export class EventsComponent {
   }
 
   protected openNew(): void {
-    this.draftName = '';
-    this.draftDate = todayIso();
-    this.formError.set('');
     this.showNew.set(true);
   }
 
@@ -302,30 +236,8 @@ export class EventsComponent {
     this.events.set(await this.ipc.deleteEvent(e.id));
   }
 
-  protected async createEvent(): Promise<void> {
-    this.formError.set('');
-    const name = this.draftName.trim();
-    if (!name) {
-      this.formError.set('El nombre es obligatorio.');
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.draftDate)) {
-      this.formError.set('Elige una fecha válida.');
-      return;
-    }
-    const parts = this.draftDate.split('-').map(Number);
-    this.events.set(
-      await this.ipc.saveEvent({
-        name,
-        month: parts[1],
-        day: parts[2],
-        date: this.draftDate,
-        variable: false,
-        icon: 'calendar',
-        color: DEFAULT_COLOR,
-        clients: [],
-      }),
-    );
+  protected async createEvent(draft: EventDraft): Promise<void> {
+    this.events.set(await this.ipc.saveEvent(draft));
     this.showNew.set(false);
   }
 }

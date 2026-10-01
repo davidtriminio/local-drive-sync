@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
@@ -62,6 +62,9 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               <app-icon name="sparkles" [size]="18" />
               {{ busy() ? 'Preparando…' : 'Sincronizar todo' }}
             </button>
+            <button (click)="abrirSelector()" [disabled]="busy()" class="btn-ghost">
+              <app-icon name="check" [size]="16" /> Elegir archivos…
+            </button>
             <button
               (click)="analizar()"
               [disabled]="busy()"
@@ -71,7 +74,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             </button>
           </div>
           <p class="mt-3 text-xs text-slate-500">
-            La app usa el mes actual automáticamente. Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente.
+            La app usa el mes actual automáticamente. Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente; Elegir archivos te deja marcar cuáles sí y cuáles no.
           </p>
         </div>
       }
@@ -270,6 +273,105 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
         </div>
       }
     </section>
+
+    <!-- Modal: elegir qué archivos sincronizar -->
+    @if (showPicker()) {
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        (click)="cerrarSelector()"
+      >
+        <div
+          class="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+          (click)="$event.stopPropagation()"
+        >
+          <h2 class="text-lg font-semibold">Elegir archivos a sincronizar</h2>
+          @if (diff(); as d) {
+            <p class="mt-1 text-xs text-slate-400">
+              {{ d.counts.new }} nuevos · {{ d.counts.modified }} modificados ·
+              {{ d.counts.equal }} sin cambios (no se listan)
+            </p>
+          }
+
+          @if (pickable().length === 0) {
+            <p class="mt-6 rounded-lg bg-slate-800/60 p-4 text-sm text-slate-400">
+              No hay archivos nuevos ni modificados para sincronizar.
+            </p>
+          } @else {
+            <div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+              <input
+                [ngModel]="filtro()"
+                (ngModelChange)="filtro.set($event)"
+                class="field !w-56 !py-1.5 text-xs"
+                placeholder="Filtrar por nombre…"
+              />
+              <button (click)="marcarVisibles(true)" class="btn-ghost btn-sm">
+                Marcar {{ filtro() ? 'visibles' : 'todos' }}
+              </button>
+              <button (click)="marcarVisibles(false)" class="btn-ghost btn-sm">
+                Desmarcar {{ filtro() ? 'visibles' : 'todos' }}
+              </button>
+            </div>
+
+            <div class="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/5">
+              <table class="w-full text-sm">
+                <tbody>
+                  @for (f of visibles(); track f.relPath) {
+                    <tr
+                      (click)="toggle(f, decisionOf(f.relPath) !== 'copy')"
+                      class="cursor-pointer border-b border-slate-800/60 hover:bg-white/5"
+                    >
+                      <td class="w-8 px-3 py-2">
+                        <input
+                          type="checkbox"
+                          [checked]="decisionOf(f.relPath) === 'copy'"
+                          (click)="$event.stopPropagation()"
+                          (change)="toggle(f, $any($event.target).checked)"
+                          class="h-4 w-4"
+                        />
+                      </td>
+                      <td class="px-2 py-2">
+                        <span class="rounded px-1.5 py-0.5 text-[10px] font-medium" [class]="badge(f.status)">
+                          {{ label(f.status) }}
+                        </span>
+                      </td>
+                      <td class="break-all px-2 py-2 font-mono text-xs text-slate-300">
+                        {{ f.relPath }}
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-500">
+                        {{ fmt(f.localSize) }}
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td class="p-4 text-center text-xs text-slate-500">
+                        Ningún archivo coincide con el filtro.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <span class="text-xs text-slate-400">
+              {{ seleccionados() }} de {{ pickable().length }} seleccionados
+            </span>
+            <div class="flex gap-2">
+              <button (click)="cerrarSelector()" class="btn-ghost">Cancelar</button>
+              <button
+                (click)="sincronizarSeleccion()"
+                [disabled]="busy() || seleccionados() === 0"
+                class="btn-primary"
+              >
+                <app-icon name="refresh" [size]="16" />
+                Sincronizar {{ seleccionados() }} archivo(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class SyncWizardComponent implements OnDestroy {
@@ -288,10 +390,25 @@ export class SyncWizardComponent implements OnDestroy {
   protected monthKey = currentMonthKey();
   private readonly decisions = signal<Record<string, FileDecision>>({});
 
+  protected readonly showPicker = signal(false);
+  protected readonly filtro = signal('');
+  /** Archivos accionables (nuevos y modificados) del último análisis. */
+  protected readonly pickable = computed(() =>
+    (this.diff()?.files ?? []).filter((f) => f.status === 'NEW' || f.status === 'MODIFIED'),
+  );
+  protected readonly visibles = computed(() => {
+    const q = this.filtro().trim().toLowerCase();
+    return q
+      ? this.pickable().filter((f) => f.relPath.toLowerCase().includes(q))
+      : this.pickable();
+  });
+  protected readonly seleccionados = computed(
+    () => this.pickable().filter((f) => this.decisions()[f.relPath] === 'copy').length,
+  );
+
   private mappingId = '';
   private unsubProgress: (() => void) | null = null;
   private unsubDone: (() => void) | null = null;
-  private autoStarted = false;
 
   constructor() {
     this.mappingId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -299,7 +416,6 @@ export class SyncWizardComponent implements OnDestroy {
       void this.router.navigate(['/']);
       return;
     }
-    queueMicrotask(() => void this.startCurrentMonthSync());
   }
 
   ngOnDestroy(): void {
@@ -358,12 +474,61 @@ export class SyncWizardComponent implements OnDestroy {
     }
   }
 
-  private async startCurrentMonthSync(): Promise<void> {
-    if (this.autoStarted) {
+  /** Analiza el mes y abre el modal para marcar qué archivos sincronizar. */
+  protected async abrirSelector(): Promise<void> {
+    if (this.busy()) {
       return;
     }
-    this.autoStarted = true;
-    await this.sincronizarRapido();
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const result = await this.ipc.scanDiff(this.mappingId, this.monthKey);
+      this.diff.set(result);
+      this.decisions.set(this.defaultDecisions(result));
+      this.filtro.set('');
+      this.showPicker.set(true);
+    } catch (e) {
+      this.error.set(`No se pudo analizar: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  protected cerrarSelector(): void {
+    this.showPicker.set(false);
+  }
+
+  /** Marca o desmarca los archivos visibles (respeta el filtro de texto). */
+  protected marcarVisibles(copiar: boolean): void {
+    this.decisions.update((cur) => {
+      const next = { ...cur };
+      for (const f of this.visibles()) {
+        next[f.relPath] = copiar ? 'copy' : 'skip';
+      }
+      return next;
+    });
+  }
+
+  protected async sincronizarSeleccion(): Promise<void> {
+    if (this.busy() || this.seleccionados() === 0) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const plan = await this.ipc.previewSync({
+        mappingId: this.mappingId,
+        monthKey: this.monthKey,
+        selections: this.selectedItems(),
+      });
+      this.plan.set(plan);
+      this.showPicker.set(false);
+      await this.ejecutar(false);
+    } catch (e) {
+      this.error.set(`No se pudo sincronizar: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected toggle(file: FileDiff, checked: boolean): void {
