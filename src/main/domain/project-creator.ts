@@ -5,6 +5,7 @@ import {
   DEFAULT_SUBFOLDERS,
   type CreateProjectRequest,
   type CreateProjectResult,
+  type MonthFormat,
   type PlatformFormatSelection,
   type Platform,
 } from '../../shared/ipc-contract';
@@ -30,10 +31,52 @@ function sanitizeKey(name: string): string {
 }
 
 /**
+ * Si la ruta no usa `{mes}` pero contiene una carpeta con nombre de mes
+ * (p. ej. "...\Septiembre-2026", típico al elegirla con el selector), la
+ * última de esas carpetas se sustituye por `{mes}` para que rote sola.
+ */
+export function toMonthTemplate(basePath: string): string {
+  if (!basePath || /\{mes\}/i.test(basePath)) {
+    return basePath;
+  }
+  const normalizer = new MonthNormalizer();
+  const parts = basePath.split(/([\\/]+)/); // conserva los separadores
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (parts[i] && !/^[\\/]+$/.test(parts[i]) && normalizer.toKey(parts[i])) {
+      parts[i] = '{mes}';
+      return parts.join('');
+    }
+  }
+  return basePath;
+}
+
+/**
+ * Formato de mes (el de la carpeta que `toMonthTemplate` sustituiría) para que
+ * las carpetas nuevas conserven el mismo estilo de nombre; null si no hay.
+ */
+export function detectMonthFormat(basePath: string): MonthFormat | null {
+  if (!basePath || /\{mes\}/i.test(basePath)) {
+    return null;
+  }
+  const normalizer = new MonthNormalizer();
+  const parts = basePath.split(/[\\/]+/);
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (parts[i] && normalizer.toKey(parts[i])) {
+      if (/[a-z]/i.test(parts[i])) {
+        return 'Mes-Año';
+      }
+      return /^\d{4}/.test(parts[i].trim()) ? 'AAAA-MM' : 'MM-AAAA';
+    }
+  }
+  return null;
+}
+
+/**
  * Resuelve el token `{mes}` de una ruta al mes actual (formato "Mes-Año",
  * p. ej. "Septiembre-2026"). Si no hay token, devuelve la ruta sin cambios.
  */
 export function resolveMonthToken(basePath: string, date?: string): string {
+  basePath = toMonthTemplate(basePath);
   if (!/\{mes\}/i.test(basePath)) {
     return basePath;
   }

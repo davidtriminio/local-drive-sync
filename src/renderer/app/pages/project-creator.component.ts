@@ -4,11 +4,13 @@ import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { IconPickerComponent } from '../shared/icon-picker.component';
 import { ColorPickerComponent } from '../shared/color-picker.component';
+import { EventDialogComponent } from '../shared/event-dialog.component';
 import { badgeStyle, chipStyle } from '../shared/colors';
 import {
   DEFAULT_SUBFOLDERS,
   type BatchClientResult,
   type Client,
+  type EventDraft,
   type EventItem,
   type Mapping,
   type Platform,
@@ -29,6 +31,7 @@ interface Appearance {
     IconComponent,
     IconPickerComponent,
     ColorPickerComponent,
+    EventDialogComponent,
   ],
   template: `
     <section class="mx-auto max-w-3xl p-8">
@@ -47,8 +50,7 @@ interface Appearance {
       </header>
 
       <!-- Evento (opcional): activa el modo lote para varios clientes -->
-      @if (events().length > 0) {
-        <div class="mb-6">
+      <div class="mb-6">
           <label class="mb-1.5 flex items-center gap-2 text-sm font-medium text-slate-300">
             <app-icon name="calendar" [size]="16" /> Evento
             <span class="text-slate-500">(crea el arte para varios clientes)</span>
@@ -64,9 +66,9 @@ interface Appearance {
                 {{ e.name }}{{ e.variable ? '' : ' · ' + e.day + '/' + e.month }}
               </option>
             }
+            <option [value]="CUSTOM_EVENT">＋ Evento personalizado…</option>
           </select>
         </div>
-      }
 
       <!-- Acceso rápido: badges de cliente (solo modo individual) -->
       @if (!eventMode() && clients().length > 0) {
@@ -428,6 +430,15 @@ interface Appearance {
         </div>
       </div>
     </section>
+
+    @if (showEventDialog()) {
+      <app-event-dialog
+        [clients]="clients()"
+        [initialClients]="clientTyped()"
+        (save)="createCustomEvent($event)"
+        (cancel)="cancelCustomEvent()"
+      />
+    }
   `,
 })
 export class ProjectCreatorComponent {
@@ -454,6 +465,8 @@ export class ProjectCreatorComponent {
   protected readonly selectedEventId = signal('');
   protected readonly batchClients = signal<Set<string>>(new Set());
   protected readonly batchResults = signal<BatchClientResult[]>([]);
+  protected readonly CUSTOM_EVENT = '__custom__';
+  protected readonly showEventDialog = signal(false);
   protected readonly eventMode = computed(() => this.selectedEventId() !== '');
   protected readonly batchHasDuplicates = computed(() =>
     this.batchResults().some((r) => r.status === 'duplicate'),
@@ -674,6 +687,12 @@ export class ProjectCreatorComponent {
 
   /** Al elegir un evento: preselecciona sus clientes y el nombre del arte. */
   protected onEventChange(id: string): void {
+    if (id === this.CUSTOM_EVENT) {
+      // Abre el modal; el select vuelve a mostrar la selección real.
+      this.showEventDialog.set(true);
+      this.resetEventSelect();
+      return;
+    }
     this.selectedEventId.set(id);
     this.batchResults.set([]);
     this.error.set('');
@@ -692,6 +711,32 @@ export class ProjectCreatorComponent {
     // Solo clientes que existen en el registro actual.
     const known = new Set(this.clients().map((c) => c.name));
     this.batchClients.set(new Set(event.clients.filter((c) => known.has(c))));
+  }
+
+  /** Cliente escrito en modo individual, para preseleccionarlo en el modal. */
+  protected clientTyped(): string[] {
+    const key = this.clientKey();
+    return this.clients().some((c) => c.name === key) ? [key] : [];
+  }
+
+  protected cancelCustomEvent(): void {
+    this.showEventDialog.set(false);
+    this.resetEventSelect();
+  }
+
+  /** Guarda el evento creado en el modal y lo deja seleccionado (modo lote). */
+  protected async createCustomEvent(draft: EventDraft): Promise<void> {
+    this.events.set(await this.ipc.saveEvent(draft));
+    this.showEventDialog.set(false);
+    this.resetEventSelect();
+    this.onEventChange(draft.id ?? '');
+  }
+
+  /** Fuerza al <select> a reflejar de nuevo la selección real. */
+  private resetEventSelect(): void {
+    const current = this.selectedEventId();
+    this.selectedEventId.set(' ');
+    queueMicrotask(() => this.selectedEventId.set(current));
   }
 
   /**

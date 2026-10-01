@@ -96,6 +96,11 @@ export class SyncService {
     return this.resolveSide(mapping.localPattern, monthKey, mapping).resolved;
   }
 
+  /** Carpeta de Drive de un mapeo para un mes dado (puede no existir aún). */
+  resolveDriveDir(mapping: Mapping, monthKey: string): string {
+    return this.resolveSide(mapping.drivePattern, monthKey, mapping).resolved;
+  }
+
   private buildScanner(mapping: Mapping): Scanner {
     const settings = this.repo.getSettings();
     const patterns = [...settings.defaultExclusions, ...mapping.exclusions];
