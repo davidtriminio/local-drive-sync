@@ -20,6 +20,7 @@ import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ExportWatcher } from '../domain/export-watcher';
+import { findRotationIssues } from '../domain/rotation';
 import { ProjectCreator, sanitizeName } from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
@@ -120,6 +121,26 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
 
   ipcMain.handle(IpcChannels.mappingsDelete, (_e, id: string) => {
     repo.deleteMapping(id);
+  });
+
+  ipcMain.handle(IpcChannels.mappingsRotationIssues, () =>
+    findRotationIssues(repo.listMappings()),
+  );
+
+  ipcMain.handle(IpcChannels.mappingsFixRotation, (_e, ids: string[]) => {
+    for (const issue of findRotationIssues(repo.listMappings())) {
+      const m = ids.includes(issue.mappingId)
+        ? repo.getMapping(issue.mappingId)
+        : undefined;
+      if (m) {
+        repo.upsertMapping({
+          ...m,
+          localPattern: issue.proposedLocal ?? m.localPattern,
+          drivePattern: issue.proposedDrive ?? m.drivePattern,
+        });
+      }
+    }
+    return findRotationIssues(repo.listMappings());
   });
 
   ipcMain.handle(IpcChannels.settingsGet, () => repo.getSettings());

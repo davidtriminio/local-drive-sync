@@ -194,7 +194,9 @@ export class AppComponent implements OnDestroy {
       case 'moved':
         return `Movido «${a.file}» → ${a.mapping}`;
       case 'unmatched':
-        return `«${a.file}»: ningún mapeo coincide con el prefijo del nombre.`;
+        return a.suggestion
+          ? `«${a.file}»: ningún mapeo coincide. ¿Quisiste escribir «${a.suggestion}»? Corrige el nombre del archivo.`
+          : `«${a.file}»: ningún mapeo coincide con el prefijo del nombre.`;
       default:
         return `Error al mover «${a.file}»: ${a.message}`;
     }

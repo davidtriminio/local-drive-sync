@@ -30,6 +30,9 @@ const api: Api = {
     ipcRenderer.invoke(IpcChannels.mappingsSave, draft),
   deleteMapping: (id: string) =>
     ipcRenderer.invoke(IpcChannels.mappingsDelete, id),
+  listRotationIssues: () => ipcRenderer.invoke(IpcChannels.mappingsRotationIssues),
+  fixRotation: (ids: string[]) =>
+    ipcRenderer.invoke(IpcChannels.mappingsFixRotation, ids),
   getSettings: () => ipcRenderer.invoke(IpcChannels.settingsGet),
   setSettings: (settings: AppSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSet, settings),

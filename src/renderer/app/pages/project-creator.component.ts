@@ -230,6 +230,72 @@ interface Appearance {
           </div>
         </div>
 
+        <!-- Mapeo del cliente: pregunta si es la misma empresa o crea uno nuevo -->
+        @if (!eventMode() && client.trim() && !mappingMatch()) {
+          @if (relatedMappings().length > 0 && sameCompany() === null) {
+            <div
+              class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
+            >
+              <p class="mb-3 flex items-start gap-2">
+                <app-icon name="alert" [size]="18" />
+                <span>
+                  Ya existe el mapeo <b>{{ relatedNames() }}</b
+                  >. ¿«{{ client.trim() }}» es la misma empresa?
+                </span>
+              </p>
+              <div class="flex flex-wrap gap-2 pl-7">
+                <button type="button" (click)="sameCompany.set(true)" class="btn-warn">
+                  Sí, usar ese mapeo
+                </button>
+                <button type="button" (click)="sameCompany.set(false)" class="btn-ghost">
+                  No, es otra empresa (crear mapeo aparte)
+                </button>
+              </div>
+            </div>
+          } @else if (sameCompany() === true) {
+            <p class="flex items-center gap-1.5 text-xs text-slate-400">
+              <app-icon name="layers" [size]="13" />
+              Sus exports se moverán con el mapeo {{ relatedNames() }}.
+              <button
+                type="button"
+                (click)="sameCompany.set(null)"
+                class="text-emerald-300 hover:underline"
+              >
+                Cambiar
+              </button>
+            </p>
+          } @else {
+            <div class="space-y-3 rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <label class="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <input type="checkbox" [(ngModel)]="createMapping" />
+                Crear mapeo para «{{ client.trim() }}»
+              </label>
+              @if (createMapping) {
+                <p class="text-xs text-slate-500">
+                  Los exports que empiecen por
+                  <code class="text-emerald-300">{{ clientKeyText() }}_</code>
+                  se moverán a la carpeta local y se sincronizarán a Drive.
+                </p>
+                <input
+                  [(ngModel)]="mapLocal"
+                  class="field font-mono text-xs"
+                  placeholder="Carpeta local: V:\\...\\{mes}\\cliente"
+                />
+                <div class="flex gap-2">
+                  <input
+                    [(ngModel)]="mapDrive"
+                    class="field font-mono text-xs"
+                    placeholder="Carpeta Drive: H:\\My Drive\\Cliente\\Artes\\{mes}"
+                  />
+                  <button type="button" (click)="pickDrive()" class="btn-ghost shrink-0">
+                    <app-icon name="folder" [size]="16" /> Elegir
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        }
+
         <!-- Tipos de archivo -->
         <div>
           <label class="mb-2 block text-sm font-medium text-slate-300">
@@ -464,6 +530,14 @@ export class ProjectCreatorComponent {
   /** Mes actual en formato "Septiembre-2026". */
   protected readonly currentMonth = this.monthLabel();
 
+  // Mapeo automático del cliente.
+  private allMappings: Mapping[] = [];
+  protected readonly sameCompany = signal<boolean | null>(null);
+  protected createMapping = true;
+  protected mapLocal = '';
+  protected mapDrive = '';
+  private lastMappingKey = '';
+
   protected basePath = '';
   protected client = '';
   protected clientIcon = 'store';
@@ -493,6 +567,7 @@ export class ProjectCreatorComponent {
 
     // Los mapeos son la fuente: su icono+color se heredan al cliente/proyecto
     // que tenga el mismo nombre.
+    this.allMappings = mappings;
     this.mappingStyles = new Map(
       mappings.map((m: Mapping) => [
         m.name.trim().toLowerCase().replace(/\s+/g, '_'),
@@ -555,11 +630,78 @@ export class ProjectCreatorComponent {
     this.clientIcon = a.icon;
     this.clientColor = a.color;
     this.showIconPicker.set(false);
+    this.sameCompany.set(null);
+    this.lastMappingKey = c.name;
   }
 
   /** Al teclear, sincroniza icono y color (mapeo primero, luego cliente). */
   protected onClientTyped(): void {
     this.syncClientStyle();
+    const key = this.clientKey();
+    if (key !== this.lastMappingKey) {
+      this.lastMappingKey = key;
+      this.sameCompany.set(null);
+      this.mapLocal = this.guessLocal(key);
+    }
+  }
+
+  /** Clave comparable: sin tildes, minúsculas y separadores como `_`. */
+  private static mapKey(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  protected clientKeyText(): string {
+    return ProjectCreatorComponent.mapKey(this.client);
+  }
+
+  /** Mapeos cuyo nombre es prefijo (por palabras) del cliente, o al revés. */
+  protected relatedMappings(): Mapping[] {
+    const key = this.clientKeyText();
+    if (!key) {
+      return [];
+    }
+    return this.allMappings.filter((m) => {
+      const mk = ProjectCreatorComponent.mapKey(m.name);
+      return mk !== key && mk && (key.startsWith(`${mk}_`) || mk.startsWith(`${key}_`));
+    });
+  }
+
+  protected relatedNames(): string {
+    return this.relatedMappings()
+      .map((m) => m.name)
+      .join(', ');
+  }
+
+  /** Propone la carpeta local copiando la de otro mapeo y cambiando el último tramo. */
+  private guessLocal(key: string): string {
+    const ref = this.allMappings[0]?.localPattern;
+    if (!ref || !key) {
+      return '';
+    }
+    const idx = Math.max(ref.lastIndexOf('\\'), ref.lastIndexOf('/'));
+    return idx > 0 ? `${ref.slice(0, idx + 1)}${key}` : '';
+  }
+
+  protected async pickDrive(): Promise<void> {
+    const chosen = await this.ipc.pickFolder();
+    if (chosen) {
+      this.mapDrive = chosen.replace(/[\\/]$/, '') + '\\{mes}';
+    }
+  }
+
+  /** ¿Hay que crear un mapeo nuevo para el cliente escrito? */
+  private wantsNewMapping(): boolean {
+    return (
+      !!this.client.trim() &&
+      !this.mappingMatch() &&
+      this.sameCompany() !== true &&
+      this.createMapping
+    );
   }
 
   private syncClientStyle(): void {
@@ -823,6 +965,18 @@ export class ProjectCreatorComponent {
       return;
     }
 
+    if (this.relatedMappings().length > 0 && !this.mappingMatch() && this.sameCompany() === null) {
+      this.error.set('Indica si el cliente es la misma empresa que el mapeo existente.');
+      return;
+    }
+    const newMapping = this.wantsNewMapping();
+    if (newMapping && (!this.mapLocal.trim() || !this.mapDrive.trim())) {
+      this.error.set(
+        'Completa la carpeta local y la de Drive del mapeo, o desmarca «Crear mapeo».',
+      );
+      return;
+    }
+
     this.busy.set(true);
     try {
       const result = await this.ipc.createProject({
@@ -843,6 +997,18 @@ export class ProjectCreatorComponent {
         return;
       }
 
+      if (newMapping) {
+        await this.ipc.saveMapping({
+          name: this.client.trim(),
+          icon: this.clientIcon,
+          color: this.clientColor,
+          localPattern: this.mapLocal.trim(),
+          drivePattern: this.mapDrive.trim(),
+          monthFormat: 'Mes-Año',
+          createMissing: true,
+          exclusions: [],
+        });
+      }
       this.success.set(result.folderName ?? '');
       this.successPath.set(result.projectPath ?? '');
       this.duplicateFolder.set('');

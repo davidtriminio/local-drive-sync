@@ -3,7 +3,25 @@ import * as path from 'node:path';
 import type { ExportActivity, Mapping } from '../../shared/ipc-contract';
 import type { Repository } from '../persistence/repository';
 import type { SyncService } from '../services/sync-service';
-import { sanitizeName } from './project-creator';
+import { matchKey } from './match-key';
+import { looksLikeMonth } from './rotation';
+
+/** Distancia de edición (Levenshtein) entre dos cadenas cortas. */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
 
 /** Espera tras el último evento antes de barrer la carpeta. */
 const SETTLE_MS = 1200;
@@ -138,6 +156,7 @@ export class ExportWatcher {
       this.emit({
         kind: 'unmatched',
         file: name,
+        suggestion: this.suggestMapping(name),
         message: 'Ningún mapeo coincide con el prefijo del nombre.',
         at: new Date().toISOString(),
       });
@@ -166,19 +185,74 @@ export class ExportWatcher {
     }
   }
 
-  /** Mapeo cuyo nombre saneado es prefijo del archivo (el más largo gana). */
+  /**
+   * Claves con las que un mapeo puede reconocer archivos: su nombre y el nombre
+   * de su carpeta local (ej. mapeo «Pebbles And Stones» con carpeta «Pebbles»).
+   */
+  private aliasKeys(m: Mapping): string[] {
+    const keys = new Set<string>();
+    const name = matchKey(m.name);
+    if (name) {
+      keys.add(name);
+    }
+    const last = m.localPattern.split(/[\\/]+/).filter(Boolean).pop() ?? '';
+    if (last && !/\{mes\}/i.test(last) && !looksLikeMonth(last)) {
+      const folder = matchKey(last);
+      if (folder) {
+        keys.add(folder);
+      }
+    }
+    return [...keys];
+  }
+
+  /**
+   * Mapeo cuyo nombre (o carpeta) es prefijo del archivo, sin importar
+   * mayúsculas, tildes ni separadores; el más largo gana. Si no hay ninguno,
+   * acepta un único mapeo con una sola letra de diferencia (error de tipeo).
+   */
   private matchMapping(fileName: string): Mapping | null {
-    const key = sanitizeName(path.parse(fileName).name);
+    const key = matchKey(path.parse(fileName).name);
+    const mappings = this.repo.listMappings();
     let best: Mapping | null = null;
     let bestLen = 0;
+    for (const m of mappings) {
+      for (const mk of this.aliasKeys(m)) {
+        if ((key === mk || key.startsWith(`${mk}_`)) && mk.length > bestLen) {
+          best = m;
+          bestLen = mk.length;
+        }
+      }
+    }
+    if (best) {
+      return best;
+    }
+    const close = mappings.filter((m) =>
+      this.aliasKeys(m).some(
+        (mk) => mk.length >= 6 && editDistance(key.slice(0, mk.length), mk) <= 1,
+      ),
+    );
+    return close.length === 1 ? close[0] : null;
+  }
+
+  /**
+   * Mapeo con nombre casi idéntico al inicio del archivo (p. ej. "atalier_..."
+   * frente a "Atelier"), para avisar de un posible error de escritura.
+   */
+  private suggestMapping(fileName: string): string | undefined {
+    const key = matchKey(path.parse(fileName).name);
+    let best: string | undefined;
+    let bestDist = Infinity;
     for (const m of this.repo.listMappings()) {
-      const mk = sanitizeName(m.name);
+      const mk = matchKey(m.name);
       if (!mk) {
         continue;
       }
-      if ((key === mk || key.startsWith(`${mk}_`)) && mk.length > bestLen) {
-        best = m;
-        bestLen = mk.length;
+      const head = key.slice(0, mk.length);
+      const dist = editDistance(head, mk);
+      const limit = mk.length <= 4 ? 1 : 2;
+      if (dist <= limit && dist < bestDist) {
+        best = m.name;
+        bestDist = dist;
       }
     }
     return best;

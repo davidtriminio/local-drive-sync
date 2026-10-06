@@ -16,6 +16,7 @@ import type {
   MappingDraft,
   NotificationsResult,
   Platform,
+  RotationIssue,
   RunDetail,
   RunSummary,
   SyncPlan,
@@ -51,6 +52,12 @@ export class IpcService {
   }
   deleteMapping(id: string): Promise<void> {
     return this.api.deleteMapping(id);
+  }
+  listRotationIssues(): Promise<RotationIssue[]> {
+    return this.api.listRotationIssues();
+  }
+  fixRotation(ids: string[]): Promise<RotationIssue[]> {
+    return this.api.fixRotation(ids);
   }
   getSettings(): Promise<AppSettings> {
     return this.api.getSettings();

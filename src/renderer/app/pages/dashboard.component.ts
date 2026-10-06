@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { chipStyle } from '../shared/colors';
-import type { Mapping } from '../../../shared/ipc-contract';
+import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
 
 /** Pantalla principal: lista de mapeos configurados. */
 @Component({
@@ -30,6 +30,36 @@ import type { Mapping } from '../../../shared/ipc-contract';
           <app-icon name="plus" [size]="18" /> Nuevo mapeo
         </button>
       </header>
+
+      @if (issues().length > 0) {
+        <div
+          class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
+        >
+          <p class="mb-2 flex items-start gap-2">
+            <app-icon name="alert" [size]="18" />
+            <span>
+              Estas carpetas no rotan: tienen un mes fijo y el próximo mes
+              seguirán apuntando al actual. Hazlas rotar con
+              <code class="text-emerald-300">&#123;mes&#125;</code>.
+            </span>
+          </p>
+          <ul class="mb-3 space-y-1 pl-7 font-mono text-xs">
+            @for (i of issues(); track i.mappingId) {
+              <li>
+                <b>{{ i.name }}</b>
+                @if (i.proposedLocal) { · local → {{ i.proposedLocal }} }
+                @if (i.proposedDrive) { · Drive → {{ i.proposedDrive }} }
+                @if (!i.proposedLocal && !i.proposedDrive) { · edítalo a mano }
+              </li>
+            }
+          </ul>
+          <div class="pl-7">
+            <button (click)="fixRotation()" class="btn-warn">
+              Hacer que roten para el próximo mes
+            </button>
+          </div>
+        </div>
+      }
 
       @if (loading()) {
         <p class="text-slate-500">Cargando…</p>
@@ -104,6 +134,7 @@ export class DashboardComponent {
 
   protected readonly mappings = signal<Mapping[]>([]);
   protected readonly loading = signal(true);
+  protected readonly issues = signal<RotationIssue[]>([]);
   protected readonly chip = chipStyle;
 
   constructor() {
@@ -113,7 +144,16 @@ export class DashboardComponent {
   private async load(): Promise<void> {
     this.loading.set(true);
     this.mappings.set(await this.ipc.listMappings());
+    this.issues.set(await this.ipc.listRotationIssues());
     this.loading.set(false);
+  }
+
+  protected async fixRotation(): Promise<void> {
+    const ids = this.issues()
+      .filter((i) => i.proposedLocal || i.proposedDrive)
+      .map((i) => i.mappingId);
+    this.issues.set(await this.ipc.fixRotation(ids));
+    this.mappings.set(await this.ipc.listMappings());
   }
 
   protected nuevo(): void {
