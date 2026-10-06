@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { IpcService } from './services/ipc.service';
 import { NotificationsStore } from './services/notifications.store';
 import { IconComponent } from './shared/icon.component';
-import type { ExportActivity } from '../../shared/ipc-contract';
+import type { ExportActivity, MonthChangeNotice } from '../../shared/ipc-contract';
 
 interface NavItem {
   path: string;
@@ -80,6 +80,37 @@ interface ExportToast {
       </aside>
 
       <main class="flex-1 overflow-y-auto">
+        @if (monthNotice(); as n) {
+          <div
+            class="m-4 mb-0 flex items-start gap-3 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm text-sky-200"
+          >
+            <app-icon name="calendar" [size]="18" class="mt-0.5 shrink-0" />
+            <div class="min-w-0 flex-1">
+              <p class="font-medium">
+                @if (n.changed) {
+                  Ya cambiamos de mes: ahora es {{ n.label }}.
+                } @else {
+                  Carpetas de {{ n.label }} preparadas.
+                }
+              </p>
+              @if (n.created.length > 0) {
+                <p class="mt-0.5 text-xs text-sky-300/80">
+                  Se crearon {{ n.created.length }} carpeta(s) para los mapeos.
+                </p>
+              }
+              @if (n.errors.length > 0) {
+                <ul class="mt-1 list-disc pl-4 text-xs text-amber-300">
+                  @for (e of n.errors; track e) {
+                    <li class="break-all">{{ e }}</li>
+                  }
+                </ul>
+              }
+            </div>
+            <button (click)="monthNotice.set(null)" class="shrink-0 opacity-60 hover:opacity-100">
+              <app-icon name="x" [size]="15" />
+            </button>
+          </div>
+        }
         <router-outlet />
       </main>
 
@@ -123,10 +154,12 @@ export class AppComponent implements OnDestroy {
   protected readonly version = signal('—');
   protected readonly fullScreen = signal(false);
   protected readonly toasts = signal<ExportToast[]>([]);
+  protected readonly monthNotice = signal<MonthChangeNotice | null>(null);
   private toastSeq = 0;
   private readonly unsubFullScreen: () => void;
   private readonly unsubSyncDone: () => void;
   private readonly unsubExport: () => void;
+  private readonly unsubMonth: () => void;
 
   protected readonly nav: NavItem[] = [
     { path: '', label: 'Mapeos', icon: 'layers', exact: true },
@@ -162,12 +195,19 @@ export class AppComponent implements OnDestroy {
 
     // Avisos de la vigilancia de la carpeta de export.
     this.unsubExport = this.ipc.onExportActivity((a) => this.pushToast(a));
+
+    // Cambio de mes: muestra el aviso y refresca los pendientes.
+    this.unsubMonth = this.ipc.onMonthChanged((n) => {
+      this.monthNotice.set(n);
+      void this.notifications.refresh();
+    });
   }
 
   ngOnDestroy(): void {
     this.unsubFullScreen();
     this.unsubSyncDone();
     this.unsubExport();
+    this.unsubMonth();
   }
 
   protected toggleFullScreen(): void {

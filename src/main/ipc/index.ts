@@ -21,7 +21,8 @@ import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ExportWatcher } from '../domain/export-watcher';
 import { findRotationIssues } from '../domain/rotation';
-import { ProjectCreator, sanitizeName } from '../domain/project-creator';
+import { MonthRollover } from '../domain/month-rollover';
+import { ProjectCreator, sanitizeName, toMonthTemplate } from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
 import { importLegacyClients } from '../domain/legacy-import';
@@ -74,6 +75,13 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   );
   exportWatcher.reconfigure();
 
+  // Cambio de mes: crea las carpetas del mes nuevo y avisa a la interfaz.
+  const monthRollover = new MonthRollover(repo, syncService, (notice) =>
+    emit(IpcChannels.monthChanged, notice),
+  );
+  // Espera a que la ventana cargue para que el aviso no se pierda.
+  setTimeout(() => monthRollover.start(), 3000);
+
   ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion());
 
   ipcMain.handle(IpcChannels.shellOpenPath, async (_e, fullPath: string) => {
@@ -109,8 +117,8 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
       name: draft.name,
       icon: draft.icon ?? existing?.icon ?? 'store',
       color: draft.color ?? existing?.color ?? '#34d399',
-      localPattern: draft.localPattern,
-      drivePattern: draft.drivePattern,
+      localPattern: toMonthTemplate(draft.localPattern),
+      drivePattern: toMonthTemplate(draft.drivePattern),
       monthFormat: draft.monthFormat,
       createMissing: draft.createMissing,
       exclusions: draft.exclusions,
@@ -367,14 +375,20 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
     return checkNotifications(repo, syncService);
   });
 
-  ipcMain.handle(IpcChannels.creatorPrefsGet, () => repo.getCreatorPrefs());
+  ipcMain.handle(IpcChannels.creatorPrefsGet, () => {
+    const prefs = repo.getCreatorPrefs();
+    return { ...prefs, basePath: toMonthTemplate(prefs.basePath) };
+  });
 
   ipcMain.handle(IpcChannels.creatorSetBasePath, (_e, basePath: string) => {
-    repo.setCreatorBasePath(basePath);
+    repo.setCreatorBasePath(toMonthTemplate(basePath));
   });
 
   return {
     shouldMinimizeToTray: () => repo.getSettings().minimizeToTray,
-    stopExportWatcher: () => exportWatcher.stop(),
+    stopExportWatcher: () => {
+      exportWatcher.stop();
+      monthRollover.stop();
+    },
   };
 }

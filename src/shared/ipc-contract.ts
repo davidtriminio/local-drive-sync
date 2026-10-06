@@ -10,6 +10,7 @@ export const IpcChannels = {
   dialogPickFolder: 'dialog:pickFolder',
   shellOpenPath: 'shell:openPath',
   exportActivity: 'export:activity',
+  monthChanged: 'month:changed',
   mappingsList: 'mappings:list',
   mappingsSave: 'mappings:save',
   mappingsDelete: 'mappings:delete',
@@ -225,6 +226,20 @@ export interface AppSettings {
   exportWatchEnabled: boolean;
   /** Carpeta que se vigila mientras la app está abierta. */
   exportWatchFolder: string;
+}
+
+/** Aviso de cambio de mes y de las carpetas creadas para el mes nuevo. */
+export interface MonthChangeNotice {
+  /** Clave del mes actual (AAAA-MM). */
+  monthKey: string;
+  /** Nombre legible, ej. "Octubre-2026". */
+  label: string;
+  /** true si el mes cambió desde la última vez que la app lo vio. */
+  changed: boolean;
+  /** Carpetas creadas automáticamente. */
+  created: string[];
+  /** Carpetas que no se pudieron crear (con el motivo). */
+  errors: string[];
 }
 
 /**
@@ -526,4 +541,5 @@ export interface Api {
   onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void;
   /** Avisos de la vigilancia de la carpeta de export (mover, sin match, error). */
   onExportActivity(cb: (activity: ExportActivity) => void): () => void;
+  onMonthChanged(cb: (notice: MonthChangeNotice) => void): () => void;
 }

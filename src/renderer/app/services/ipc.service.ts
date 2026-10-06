@@ -12,6 +12,7 @@ import type {
   EventDraft,
   EventItem,
   ExportActivity,
+  MonthChangeNotice,
   Mapping,
   MappingDraft,
   NotificationsResult,
@@ -151,5 +152,8 @@ export class IpcService {
   }
   onExportActivity(cb: (activity: ExportActivity) => void): () => void {
     return this.api.onExportActivity(cb);
+  }
+  onMonthChanged(cb: (notice: MonthChangeNotice) => void): () => void {
+    return this.api.onMonthChanged(cb);
   }
 }
