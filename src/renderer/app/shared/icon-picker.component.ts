@@ -10,13 +10,13 @@ import { IconComponent, SELECTABLE_ICONS } from './icon.component';
   standalone: true,
   imports: [IconComponent],
   template: `
-    <div class="grid grid-cols-8 gap-1.5">
+    <div class="flex flex-wrap gap-1.5">
       @for (name of icons; track name) {
         <button
           type="button"
           (click)="valueChange.emit(name)"
           [title]="name"
-          class="flex h-9 w-9 items-center justify-center rounded-lg transition-colors"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors"
           [class]="
             value === name
               ? 'bg-emerald-500 text-slate-950'

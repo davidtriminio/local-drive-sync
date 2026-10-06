@@ -44,7 +44,7 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
           />
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto]">
+        <div class="space-y-4">
           <div>
             <label class="mb-2 block text-sm text-slate-300">Icono</label>
             <app-icon-picker [value]="icon" (valueChange)="icon = $event" />

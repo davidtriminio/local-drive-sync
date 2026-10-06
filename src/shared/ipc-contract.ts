@@ -14,6 +14,8 @@ export const IpcChannels = {
   mappingsList: 'mappings:list',
   mappingsSave: 'mappings:save',
   mappingsDelete: 'mappings:delete',
+  mappingsRotationIssues: 'mappings:rotationIssues',
+  mappingsFixRotation: 'mappings:fixRotation',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
   scanDiff: 'scan:diff',
@@ -67,6 +69,18 @@ export interface Mapping {
   /** Patrones glob a excluir (además de los globales). */
   exclusions: string[];
   createdAt: string;
+}
+
+/** Mapeo cuyas rutas tienen un mes fijo y no rotan solas al cambiar de mes. */
+export interface RotationIssue {
+  mappingId: string;
+  name: string;
+  localFixed: boolean;
+  driveFixed: boolean;
+  /** Ruta local corregida con `{mes}` (si se pudo deducir). */
+  proposedLocal?: string;
+  /** Ruta Drive corregida con `{mes}` (si se pudo deducir). */
+  proposedDrive?: string;
 }
 
 export interface MappingDraft {
@@ -243,6 +257,8 @@ export interface ExportActivity {
   dest?: string;
   /** Detalle del problema (`unmatched` / `error`). */
   message?: string;
+  /** Mapeo parecido por si el prefijo tiene un error de escritura (`unmatched`). */
+  suggestion?: string;
   /** Marca de tiempo ISO. */
   at: string;
 }
@@ -466,6 +482,9 @@ export interface Api {
   listMappings(): Promise<Mapping[]>;
   saveMapping(draft: MappingDraft): Promise<Mapping>;
   deleteMapping(id: string): Promise<void>;
+  listRotationIssues(): Promise<RotationIssue[]>;
+  /** Aplica las rutas con `{mes}` propuestas; devuelve lo que sigue sin rotar. */
+  fixRotation(mappingIds: string[]): Promise<RotationIssue[]>;
   getSettings(): Promise<AppSettings>;
   setSettings(settings: AppSettings): Promise<AppSettings>;
   scanDiff(mappingId: string, monthKey: string): Promise<DiffResult>;
