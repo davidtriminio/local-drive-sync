@@ -47,12 +47,18 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
             @for (i of issues(); track i.mappingId) {
               <li class="rounded-xl bg-black/20 p-3">
                 <b>{{ i.name }}</b>
+                <span class="ml-2 text-xs text-slate-400">
+                  Formato de mes: {{ i.format }} ({{ i.formatSample }})
+                </span>
                 @if (i.localFixed) {
                   <div class="mt-2">
                     <p class="font-mono text-xs text-sky-300">{{ i.localPattern }}</p>
                     @if (i.proposedLocal) {
                       <p class="font-mono text-xs text-emerald-300">
                         → {{ i.proposedLocal }}
+                      </p>
+                      <p class="font-mono text-xs text-slate-400">
+                        ej. este mes: {{ i.proposedLocalExample }}
                       </p>
                     }
                     <p class="mt-0.5 text-xs text-amber-200/80">{{ i.localNote }}</p>
@@ -72,6 +78,9 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
                     @if (i.proposedDrive) {
                       <p class="font-mono text-xs text-emerald-300">
                         → {{ i.proposedDrive }}
+                      </p>
+                      <p class="font-mono text-xs text-slate-400">
+                        ej. este mes: {{ i.proposedDriveExample }}
                       </p>
                     }
                     <p class="mt-0.5 text-xs text-amber-200/80">{{ i.driveNote }}</p>

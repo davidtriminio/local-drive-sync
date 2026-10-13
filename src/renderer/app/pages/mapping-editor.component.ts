@@ -77,6 +77,11 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (conforms(localPattern)) {
+            <p class="mt-1 break-all font-mono text-xs text-emerald-300/80">
+              Este mes ({{ monthFormat }}): {{ preview(localPattern) }}
+            </p>
+          }
           @if (!conforms(localPattern) && localPattern) {
             <p class="mt-1 text-xs text-amber-400">
               * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
@@ -107,6 +112,11 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (conforms(drivePattern)) {
+            <p class="mt-1 break-all font-mono text-xs text-emerald-300/80">
+              Este mes ({{ monthFormat }}): {{ preview(drivePattern) }}
+            </p>
+          }
           @if (!conforms(drivePattern) && drivePattern) {
             <p class="mt-1 text-xs text-amber-400">
               * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
@@ -215,6 +225,24 @@ export class MappingEditorComponent {
   /** true si la ruta incluye el token {mes} (rotará por mes automáticamente). */
   protected conforms(pattern: string): boolean {
     return /\{mes\}/i.test(pattern);
+  }
+
+  /** Ruta con {mes} resuelto al mes actual y al formato elegido. */
+  protected preview(pattern: string): string {
+    const now = new Date();
+    const names = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
+      'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const month =
+      this.monthFormat === 'MM-AAAA'
+        ? `${mm}-${year}`
+        : this.monthFormat === 'AAAA-MM'
+          ? `${year}-${mm}`
+          : `${names[now.getMonth()]}-${year}`;
+    return pattern.replace(/\{mes\}/gi, month);
   }
 
   protected async pick(side: 'local' | 'drive'): Promise<void> {

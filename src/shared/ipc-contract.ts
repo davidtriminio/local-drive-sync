@@ -82,6 +82,14 @@ export interface RotationIssue {
   /** Rutas actuales del mapeo (para mostrarlas al guiar la corrección manual). */
   localPattern: string;
   drivePattern: string;
+  /** Formato de mes que se usará al rotar (deducido del nombre de carpeta). */
+  format: MonthFormat;
+  /** Ejemplo del formato con el mes actual, p. ej. "Octubre-2026". */
+  formatSample: string;
+  /** Ruta local propuesta resuelta al mes actual (vista previa). */
+  proposedLocalExample?: string;
+  /** Ruta Drive propuesta resuelta al mes actual (vista previa). */
+  proposedDriveExample?: string;
   /** Cómo se dedujo la propuesta local, o qué hacer a mano si no hay. */
   localNote?: string;
   /** Cómo se dedujo la propuesta de Drive, o qué hacer a mano si no hay. */

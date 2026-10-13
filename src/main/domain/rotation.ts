@@ -1,8 +1,10 @@
 import * as fs from 'node:fs';
-import type { Mapping, RotationIssue } from '../../shared/ipc-contract';
+import type { Mapping, MonthFormat, RotationIssue } from '../../shared/ipc-contract';
 import type { Repository } from '../persistence/repository';
 import { matchKey } from './match-key';
 import { MonthNormalizer } from './month-normalizer';
+import { currentMonthKey } from './notifications';
+import { detectMonthFormat } from './project-creator';
 
 const MONTHS =
   'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre';
@@ -42,6 +44,8 @@ interface Proposal {
   pattern: string;
   /** Explicación breve de cómo se dedujo. */
   note: string;
+  /** Formato de mes del nombre de carpeta detectado, si lo hay. */
+  format?: MonthFormat;
 }
 
 function sepOf(pattern: string): string {
@@ -84,6 +88,7 @@ function fromMonthSegment(
       return {
         pattern: parts.join(''),
         note: `El tramo «${original}» es un mes fijo; se cambia por {mes}.`,
+        format: detectMonthFormat(original) ?? undefined,
       };
     }
   }
@@ -100,6 +105,7 @@ function fromChildMonths(pattern: string, lister: DirLister): Proposal | null {
   return {
     pattern: `${base}${sepOf(base)}{mes}`,
     note: `Dentro de la carpeta hay meses (p. ej. «${found}»): se añade {mes} al final.`,
+    format: detectMonthFormat(found) ?? undefined,
   };
 }
 
@@ -117,6 +123,7 @@ function fromSiblingMonths(pattern: string, lister: DirLister): Proposal | null 
       return {
         pattern: `${split.parent}${sep}{mes}${sep}${split.last}`,
         note: `Existe «${month}\\${split.last}» junto a esta carpeta: se usa {mes}\\${split.last}.`,
+        format: detectMonthFormat(month) ?? undefined,
       };
     }
   }
@@ -143,6 +150,7 @@ function fromOtherMapping(
       return {
         pattern: `${split.parent}${sepOf(split.parent)}{mes}${sepOf(split.parent)}${split.last}`,
         note: `Igual que el mapeo «${o.name}», que ya rota en la misma carpeta raíz.`,
+        format: o.monthFormat,
       };
     }
   }
@@ -188,8 +196,16 @@ export function findRotationIssues(
     }
     const local = localFixed ? propose(m, 'local', mappings, lister) : null;
     const drive = driveFixed ? propose(m, 'drive', mappings, lister) : null;
+    const format = local?.format ?? drive?.format ?? m.monthFormat;
+    const sample = normalizer.render(currentMonthKey(), format);
+    const example = (p?: string): string | undefined =>
+      p?.replace(/\{mes\}/gi, sample);
     issues.push({
       mappingId: m.id,
+      format,
+      formatSample: sample,
+      proposedLocalExample: example(local?.pattern),
+      proposedDriveExample: example(drive?.pattern),
       name: m.name,
       localFixed,
       driveFixed,
@@ -229,6 +245,7 @@ export function applyRotation(
       ...m,
       localPattern: issue.proposedLocal ?? m.localPattern,
       drivePattern: issue.proposedDrive ?? m.drivePattern,
+      monthFormat: issue.format,
     });
     changed.push(m.name);
   }
