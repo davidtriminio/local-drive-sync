@@ -238,6 +238,21 @@ export class Repository {
     return this.db.clients.find((c) => c.name === name);
   }
 
+  /** Crea el cliente sin proyectos si no existe; devuelve true si lo creó. */
+  ensureClient(name: string, icon?: string, color?: string): boolean {
+    if (this.db.clients.some((c) => c.name === name)) {
+      return false;
+    }
+    this.db.clients.push({
+      name,
+      icon: icon || 'user',
+      color: color || '#34d399',
+      projects: [],
+    });
+    this.persist();
+    return true;
+  }
+
   /** Registra un proyecto para un cliente, creando el cliente si no existe. */
   recordProject(
     clientName: string,

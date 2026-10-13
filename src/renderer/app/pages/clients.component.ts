@@ -1,4 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { chipStyle } from '../shared/colors';
@@ -17,7 +19,7 @@ function sanitize(name: string): string {
 @Component({
   selector: 'app-clients',
   standalone: true,
-  imports: [IconComponent],
+  imports: [FormsModule, IconComponent],
   template: `
     <section class="mx-auto max-w-3xl p-8">
       <header class="mb-8 flex items-center gap-3">
@@ -32,7 +34,26 @@ function sanitize(name: string): string {
             Historial de proyectos y eliminación sincronizada.
           </p>
         </div>
+        <button (click)="creating.set(!creating())" class="btn-primary ml-auto">
+          <app-icon name="plus" [size]="18" /> Nuevo cliente
+        </button>
       </header>
+
+      @if (creating()) {
+        <div class="card mb-6 flex flex-wrap items-center gap-3 p-4">
+          <input
+            [(ngModel)]="newName"
+            (keyup.enter)="createClient()"
+            class="field min-w-0 flex-1"
+            placeholder="Nombre del cliente"
+          />
+          <button (click)="createClient()" class="btn-primary">Crear</button>
+          <button (click)="creating.set(false)" class="btn-ghost">Cancelar</button>
+          @if (formError()) {
+            <p class="w-full text-sm text-rose-400">{{ formError() }}</p>
+          }
+        </div>
+      }
 
       @if (clients().length === 0) {
         <div
@@ -158,7 +179,11 @@ function sanitize(name: string): string {
 })
 export class ClientsComponent {
   private readonly ipc = inject(IpcService);
+  private readonly router = inject(Router);
   protected readonly chip = chipStyle;
+  protected readonly creating = signal(false);
+  protected readonly formError = signal('');
+  protected newName = '';
 
   protected readonly clients = signal<Client[]>([]);
   protected readonly mappings = signal<Mapping[]>([]);
@@ -176,6 +201,33 @@ export class ClientsComponent {
     ]);
     this.clients.set(clients);
     this.mappings.set(mappings);
+  }
+
+  /** Crea el cliente y, si no tiene mapeo, ofrece crearlo también. */
+  protected async createClient(): Promise<void> {
+    const name = this.newName.trim();
+    if (!name) {
+      this.formError.set('Escribe el nombre del cliente.');
+      return;
+    }
+    const key = sanitize(name);
+    if (this.clients().some((c) => c.name === key)) {
+      this.formError.set('Ese cliente ya existe.');
+      return;
+    }
+    this.clients.set(await this.ipc.createClient(name));
+    this.newName = '';
+    this.formError.set('');
+    this.creating.set(false);
+    if (this.mappings().some((m) => sanitize(m.name) === key)) {
+      return;
+    }
+    const ok = confirm(
+      `Cliente «${name}» creado. ¿Quieres crear también su mapeo (carpeta local → Drive)?`,
+    );
+    if (ok) {
+      void this.router.navigate(['/mapping/new'], { queryParams: { name } });
+    }
   }
 
   protected toggle(name: string): void {

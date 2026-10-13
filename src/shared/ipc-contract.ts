@@ -16,6 +16,7 @@ export const IpcChannels = {
   mappingsDelete: 'mappings:delete',
   mappingsRotationIssues: 'mappings:rotationIssues',
   mappingsFixRotation: 'mappings:fixRotation',
+  mappingsSetRotationSide: 'mappings:setRotationSide',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
   scanDiff: 'scan:diff',
@@ -29,6 +30,7 @@ export const IpcChannels = {
   trashList: 'trash:list',
   trashRestore: 'trash:restore',
   clientsList: 'clients:list',
+  clientsCreate: 'clients:create',
   platformsList: 'platforms:list',
   projectCreate: 'project:create',
   creatorPrefsGet: 'creator:prefsGet',
@@ -77,10 +79,25 @@ export interface RotationIssue {
   name: string;
   localFixed: boolean;
   driveFixed: boolean;
+  /** Rutas actuales del mapeo (para mostrarlas al guiar la corrección manual). */
+  localPattern: string;
+  drivePattern: string;
+  /** Cómo se dedujo la propuesta local, o qué hacer a mano si no hay. */
+  localNote?: string;
+  /** Cómo se dedujo la propuesta de Drive, o qué hacer a mano si no hay. */
+  driveNote?: string;
   /** Ruta local corregida con `{mes}` (si se pudo deducir). */
   proposedLocal?: string;
   /** Ruta Drive corregida con `{mes}` (si se pudo deducir). */
   proposedDrive?: string;
+}
+
+/** Resultado de fijar a mano la carpeta del mes de un lado de un mapeo. */
+export interface RotationSideResult {
+  ok: boolean;
+  message: string;
+  /** Mapeos que siguen sin rotar tras el cambio. */
+  issues: RotationIssue[];
 }
 
 export interface MappingDraft {
@@ -240,6 +257,8 @@ export interface MonthChangeNotice {
   created: string[];
   /** Carpetas que no se pudieron crear (con el motivo). */
   errors: string[];
+  /** Mapeos cuya ruta se convirtió sola a `{mes}` para que roten. */
+  rotated: string[];
 }
 
 /**
@@ -485,6 +504,15 @@ export interface Api {
   listRotationIssues(): Promise<RotationIssue[]>;
   /** Aplica las rutas con `{mes}` propuestas; devuelve lo que sigue sin rotar. */
   fixRotation(mappingIds: string[]): Promise<RotationIssue[]>;
+  /**
+   * Guía manual: toma la carpeta del mes elegida (p. ej. `...\Octubre-2026`) y
+   * la guarda como ruta con `{mes}` en el lado indicado del mapeo.
+   */
+  setRotationSide(
+    mappingId: string,
+    side: 'local' | 'drive',
+    folder: string,
+  ): Promise<RotationSideResult>;
   getSettings(): Promise<AppSettings>;
   setSettings(settings: AppSettings): Promise<AppSettings>;
   scanDiff(mappingId: string, monthKey: string): Promise<DiffResult>;
@@ -497,6 +525,8 @@ export interface Api {
   restoreTrash(trashId: string): Promise<void>;
   /** Clientes registrados con su historial de proyectos. */
   listClients(): Promise<Client[]>;
+  /** Registra un cliente sin proyectos (idempotente por nombre saneado). */
+  createClient(name: string, icon?: string, color?: string): Promise<Client[]>;
   /** Asigna un icono a un cliente existente; devuelve la lista actualizada. */
   setClientIcon(name: string, icon: string): Promise<Client[]>;
   /** Asigna un color a un cliente existente; devuelve la lista actualizada. */

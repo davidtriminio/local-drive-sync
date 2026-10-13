@@ -18,6 +18,7 @@ import type {
   NotificationsResult,
   Platform,
   RotationIssue,
+  RotationSideResult,
   RunDetail,
   RunSummary,
   SyncPlan,
@@ -59,6 +60,16 @@ export class IpcService {
   }
   fixRotation(ids: string[]): Promise<RotationIssue[]> {
     return this.api.fixRotation(ids);
+  }
+  setRotationSide(
+    mappingId: string,
+    side: 'local' | 'drive',
+    folder: string,
+  ): Promise<RotationSideResult> {
+    return this.api.setRotationSide(mappingId, side, folder);
+  }
+  createClient(name: string, icon?: string, color?: string): Promise<Client[]> {
+    return this.api.createClient(name, icon, color);
   }
   getSettings(): Promise<AppSettings> {
     return this.api.getSettings();

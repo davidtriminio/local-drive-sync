@@ -98,6 +98,11 @@ interface ExportToast {
                   Se crearon {{ n.created.length }} carpeta(s) para los mapeos.
                 </p>
               }
+              @if (n.rotated.length > 0) {
+                <p class="mt-0.5 text-xs text-sky-300/80">
+                  Ahora rotan solos cada mes: {{ n.rotated.join(', ') }}.
+                </p>
+              }
               @if (n.errors.length > 0) {
                 <ul class="mt-1 list-disc pl-4 text-xs text-amber-300">
                   @for (e of n.errors; track e) {

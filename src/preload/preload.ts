@@ -34,6 +34,10 @@ const api: Api = {
   listRotationIssues: () => ipcRenderer.invoke(IpcChannels.mappingsRotationIssues),
   fixRotation: (ids: string[]) =>
     ipcRenderer.invoke(IpcChannels.mappingsFixRotation, ids),
+  setRotationSide: (mappingId: string, side: 'local' | 'drive', folder: string) =>
+    ipcRenderer.invoke(IpcChannels.mappingsSetRotationSide, mappingId, side, folder),
+  createClient: (name: string, icon?: string, color?: string) =>
+    ipcRenderer.invoke(IpcChannels.clientsCreate, name, icon, color),
   getSettings: () => ipcRenderer.invoke(IpcChannels.settingsGet),
   setSettings: (settings: AppSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSet, settings),

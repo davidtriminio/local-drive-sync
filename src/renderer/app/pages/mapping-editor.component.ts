@@ -189,6 +189,9 @@ export class MappingEditorComponent {
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       void this.loadExisting(id);
+    } else {
+      // Viene de crear un cliente: el nombre ya llega relleno.
+      this.name = this.route.snapshot.queryParamMap.get('name') ?? '';
     }
   }
 
@@ -233,6 +236,7 @@ export class MappingEditorComponent {
       this.error.set('Nombre, carpeta local y carpeta Drive son obligatorios.');
       return;
     }
+    const isNew = !this.editing();
     await this.ipc.saveMapping({
       id: this.id,
       name: this.name.trim(),
@@ -247,7 +251,27 @@ export class MappingEditorComponent {
         .map((s) => s.trim())
         .filter((s) => s.length > 0),
     });
+    if (isNew) {
+      await this.offerClient();
+    }
     void this.router.navigate(['/']);
+  }
+
+  /** Al crear un mapeo nuevo, ofrece registrar también al cliente si no existe. */
+  private async offerClient(): Promise<void> {
+    const name = this.name.trim();
+    const key = name.toLowerCase().replace(/\s+/g, '_');
+    const clients = await this.ipc.listClients();
+    if (!key || clients.some((c) => c.name === key)) {
+      return;
+    }
+    const ok = confirm(
+      `Creaste el mapeo «${name}». ¿Quieres crear también el cliente «${name}»?
+Así aparece en Proyectos y en Clientes con el mismo icono y color.`,
+    );
+    if (ok) {
+      await this.ipc.createClient(name, this.icon, this.color);
+    }
   }
 
   protected cancelar(): void {
