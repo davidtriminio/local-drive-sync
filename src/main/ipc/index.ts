@@ -20,9 +20,14 @@ import { Repository } from '../persistence/repository';
 import { TrashService } from '../domain/trash-service';
 import { SyncService } from '../services/sync-service';
 import { ExportWatcher } from '../domain/export-watcher';
-import { findRotationIssues } from '../domain/rotation';
+import { applyRotation, findRotationIssues } from '../domain/rotation';
 import { MonthRollover } from '../domain/month-rollover';
-import { ProjectCreator, sanitizeName, toMonthTemplate } from '../domain/project-creator';
+import {
+  ProjectCreator,
+  detectMonthFormat,
+  sanitizeName,
+  toMonthTemplate,
+} from '../domain/project-creator';
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
 import { importLegacyClients } from '../domain/legacy-import';
@@ -136,20 +141,43 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   );
 
   ipcMain.handle(IpcChannels.mappingsFixRotation, (_e, ids: string[]) => {
-    for (const issue of findRotationIssues(repo.listMappings())) {
-      const m = ids.includes(issue.mappingId)
-        ? repo.getMapping(issue.mappingId)
-        : undefined;
-      if (m) {
-        repo.upsertMapping({
-          ...m,
-          localPattern: issue.proposedLocal ?? m.localPattern,
-          drivePattern: issue.proposedDrive ?? m.drivePattern,
-        });
-      }
-    }
+    applyRotation(repo, ids);
     return findRotationIssues(repo.listMappings());
   });
+
+  ipcMain.handle(
+    IpcChannels.mappingsSetRotationSide,
+    (_e, mappingId: string, side: 'local' | 'drive', folder: string) => {
+      const m = repo.getMapping(mappingId);
+      const template = toMonthTemplate(folder.trim());
+      if (!m) {
+        return {
+          ok: false,
+          message: 'El mapeo ya no existe.',
+          issues: findRotationIssues(repo.listMappings()),
+        };
+      }
+      if (!/\{mes\}/i.test(template)) {
+        return {
+          ok: false,
+          message:
+            'La carpeta elegida no tiene un nombre de mes (p. ej. Octubre-2026). Elige la carpeta del mes actual, no la de la empresa.',
+          issues: findRotationIssues(repo.listMappings()),
+        };
+      }
+      repo.upsertMapping({
+        ...m,
+        localPattern: side === 'local' ? template : m.localPattern,
+        drivePattern: side === 'drive' ? template : m.drivePattern,
+        monthFormat: detectMonthFormat(folder) ?? m.monthFormat,
+      });
+      return {
+        ok: true,
+        message: `Listo: ${template}`,
+        issues: findRotationIssues(repo.listMappings()),
+      };
+    },
+  );
 
   ipcMain.handle(IpcChannels.settingsGet, () => repo.getSettings());
   ipcMain.handle(IpcChannels.settingsSet, (_e, settings: AppSettings) => {
@@ -199,6 +227,17 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
 
   // --- Creador de proyectos gráficos ---
   ipcMain.handle(IpcChannels.clientsList, () => repo.listClients());
+
+  ipcMain.handle(
+    IpcChannels.clientsCreate,
+    (_e, name: string, icon?: string, color?: string) => {
+      const clean = sanitizeName(name ?? '');
+      if (clean) {
+        repo.ensureClient(clean, icon, color);
+      }
+      return repo.listClients();
+    },
+  );
 
   ipcMain.handle(
     IpcChannels.clientsSetIcon,

@@ -77,6 +77,11 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (conforms(localPattern)) {
+            <p class="mt-1 break-all font-mono text-xs text-emerald-300/80">
+              Este mes ({{ monthFormat }}): {{ preview(localPattern) }}
+            </p>
+          }
           @if (!conforms(localPattern) && localPattern) {
             <p class="mt-1 text-xs text-amber-400">
               * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
@@ -107,6 +112,11 @@ import type { MonthFormat } from '../../../shared/ipc-contract';
               Elegir…
             </button>
           </div>
+          @if (conforms(drivePattern)) {
+            <p class="mt-1 break-all font-mono text-xs text-emerald-300/80">
+              Este mes ({{ monthFormat }}): {{ preview(drivePattern) }}
+            </p>
+          }
           @if (!conforms(drivePattern) && drivePattern) {
             <p class="mt-1 text-xs text-amber-400">
               * No incluye <code>&#123;mes&#125;</code>: esta ruta no rotará por
@@ -189,6 +199,9 @@ export class MappingEditorComponent {
     const id = this.route.snapshot.paramMap.get('id');
     if (id && id !== 'new') {
       void this.loadExisting(id);
+    } else {
+      // Viene de crear un cliente: el nombre ya llega relleno.
+      this.name = this.route.snapshot.queryParamMap.get('name') ?? '';
     }
   }
 
@@ -214,6 +227,24 @@ export class MappingEditorComponent {
     return /\{mes\}/i.test(pattern);
   }
 
+  /** Ruta con {mes} resuelto al mes actual y al formato elegido. */
+  protected preview(pattern: string): string {
+    const now = new Date();
+    const names = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
+      'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const month =
+      this.monthFormat === 'MM-AAAA'
+        ? `${mm}-${year}`
+        : this.monthFormat === 'AAAA-MM'
+          ? `${year}-${mm}`
+          : `${names[now.getMonth()]}-${year}`;
+    return pattern.replace(/\{mes\}/gi, month);
+  }
+
   protected async pick(side: 'local' | 'drive'): Promise<void> {
     const chosen = await this.ipc.pickFolder();
     if (!chosen) {
@@ -233,6 +264,7 @@ export class MappingEditorComponent {
       this.error.set('Nombre, carpeta local y carpeta Drive son obligatorios.');
       return;
     }
+    const isNew = !this.editing();
     await this.ipc.saveMapping({
       id: this.id,
       name: this.name.trim(),
@@ -247,7 +279,27 @@ export class MappingEditorComponent {
         .map((s) => s.trim())
         .filter((s) => s.length > 0),
     });
+    if (isNew) {
+      await this.offerClient();
+    }
     void this.router.navigate(['/']);
+  }
+
+  /** Al crear un mapeo nuevo, ofrece registrar también al cliente si no existe. */
+  private async offerClient(): Promise<void> {
+    const name = this.name.trim();
+    const key = name.toLowerCase().replace(/\s+/g, '_');
+    const clients = await this.ipc.listClients();
+    if (!key || clients.some((c) => c.name === key)) {
+      return;
+    }
+    const ok = confirm(
+      `Creaste el mapeo «${name}». ¿Quieres crear también el cliente «${name}»?
+Así aparece en Proyectos y en Clientes con el mismo icono y color.`,
+    );
+    if (ok) {
+      await this.ipc.createClient(name, this.icon, this.color);
+    }
   }
 
   protected cancelar(): void {

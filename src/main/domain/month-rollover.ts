@@ -3,6 +3,7 @@ import type { MonthChangeNotice } from '../../shared/ipc-contract';
 import { MonthNormalizer } from './month-normalizer';
 import { currentMonthKey } from './notifications';
 import type { Repository } from '../persistence/repository';
+import { applyRotation } from './rotation';
 import type { SyncService } from '../services/sync-service';
 
 /** Cada cuánto se revisa si cambió el mes (la app puede quedar abierta días). */
@@ -28,7 +29,8 @@ function staticPrefix(pattern: string): string {
 /**
  * Vigila el cambio de mes: cuando el mes actual deja de ser el último visto (o
  * al arrancar), crea las carpetas del mes en curso para cada mapeo que rota con
- * `{mes}` y avisa al renderer. La carpeta local se crea siempre; la de Drive
+ * `{mes}` y avisa al renderer. Antes convierte sola a `{mes}` las rutas con mes
+ * fijo que se puedan deducir, para que el mapeo rote. La carpeta local se crea siempre; la de Drive
  * solo si el mapeo tiene activado "crear carpeta destino".
  */
 export class MonthRollover {
@@ -59,6 +61,7 @@ export class MonthRollover {
     const previous = this.repo.getLastMonthSeen();
     const created: string[] = [];
     const errors: string[] = [];
+    const rotated = applyRotation(this.repo);
 
     for (const mapping of this.repo.listMappings()) {
       const targets: { pattern: string; dir: string }[] = [
@@ -93,13 +96,14 @@ export class MonthRollover {
 
     this.repo.setLastMonthSeen(monthKey);
     const changed = previous !== '' && previous !== monthKey;
-    if (changed || created.length > 0) {
+    if (changed || created.length > 0 || rotated.length > 0) {
       this.emit({
         monthKey,
         label: this.normalizer.render(monthKey, 'Mes-Año'),
         changed,
         created,
         errors,
+        rotated,
       });
     }
   }

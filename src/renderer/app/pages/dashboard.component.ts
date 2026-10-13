@@ -35,29 +35,81 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
         <div
           class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
         >
-          <p class="mb-2 flex items-start gap-2">
+          <p class="mb-3 flex items-start gap-2">
             <app-icon name="alert" [size]="18" />
             <span>
-              Estas carpetas no rotan: tienen un mes fijo y el próximo mes
-              seguirán apuntando al actual. Hazlas rotar con
+              Estas carpetas tienen un mes fijo y no rotan: el próximo mes
+              seguirán apuntando al actual. Se arreglan con
               <code class="text-emerald-300">&#123;mes&#125;</code>.
             </span>
           </p>
-          <ul class="mb-3 space-y-1 pl-7 font-mono text-xs">
+          <ul class="mb-3 space-y-3 pl-7">
             @for (i of issues(); track i.mappingId) {
-              <li>
+              <li class="rounded-xl bg-black/20 p-3">
                 <b>{{ i.name }}</b>
-                @if (i.proposedLocal) { · local → {{ i.proposedLocal }} }
-                @if (i.proposedDrive) { · Drive → {{ i.proposedDrive }} }
-                @if (!i.proposedLocal && !i.proposedDrive) { · edítalo a mano }
+                <span class="ml-2 text-xs text-slate-400">
+                  Formato de mes: {{ i.format }} ({{ i.formatSample }})
+                </span>
+                @if (i.localFixed) {
+                  <div class="mt-2">
+                    <p class="font-mono text-xs text-sky-300">{{ i.localPattern }}</p>
+                    @if (i.proposedLocal) {
+                      <p class="font-mono text-xs text-emerald-300">
+                        → {{ i.proposedLocal }}
+                      </p>
+                      <p class="font-mono text-xs text-slate-400">
+                        ej. este mes: {{ i.proposedLocalExample }}
+                      </p>
+                    }
+                    <p class="mt-0.5 text-xs text-amber-200/80">{{ i.localNote }}</p>
+                    @if (!i.proposedLocal) {
+                      <button
+                        (click)="pickSide(i, 'local')"
+                        class="btn-ghost btn-sm mt-1.5"
+                      >
+                        <app-icon name="folder" [size]="14" /> Elegir carpeta del mes (local)
+                      </button>
+                    }
+                  </div>
+                }
+                @if (i.driveFixed) {
+                  <div class="mt-2">
+                    <p class="font-mono text-xs text-amber-300">{{ i.drivePattern }}</p>
+                    @if (i.proposedDrive) {
+                      <p class="font-mono text-xs text-emerald-300">
+                        → {{ i.proposedDrive }}
+                      </p>
+                      <p class="font-mono text-xs text-slate-400">
+                        ej. este mes: {{ i.proposedDriveExample }}
+                      </p>
+                    }
+                    <p class="mt-0.5 text-xs text-amber-200/80">{{ i.driveNote }}</p>
+                    @if (!i.proposedDrive) {
+                      <button
+                        (click)="pickSide(i, 'drive')"
+                        class="btn-ghost btn-sm mt-1.5"
+                      >
+                        <app-icon name="folder" [size]="14" /> Elegir carpeta del mes (Drive)
+                      </button>
+                    }
+                  </div>
+                }
+                <button (click)="editar(i.mappingId)" class="mt-2 text-xs text-sky-300 hover:underline">
+                  Editar a mano
+                </button>
               </li>
             }
           </ul>
-          <div class="pl-7">
-            <button (click)="fixRotation()" class="btn-warn">
-              Hacer que roten para el próximo mes
-            </button>
-          </div>
+          @if (rotationMessage()) {
+            <p class="mb-3 pl-7 text-xs text-amber-200">{{ rotationMessage() }}</p>
+          }
+          @if (fixable().length > 0) {
+            <div class="pl-7">
+              <button (click)="fixRotation()" class="btn-warn">
+                Aplicar {{ fixable().length }} corrección(es) automática(s)
+              </button>
+            </div>
+          }
         </div>
       }
 
@@ -148,20 +200,44 @@ export class DashboardComponent {
     this.loading.set(false);
   }
 
+  protected readonly rotationMessage = signal('');
+
+  /** Mapeos con al menos una propuesta que se puede aplicar sola. */
+  protected fixable(): RotationIssue[] {
+    return this.issues().filter((i) => i.proposedLocal || i.proposedDrive);
+  }
+
   protected async fixRotation(): Promise<void> {
-    const ids = this.issues()
-      .filter((i) => i.proposedLocal || i.proposedDrive)
-      .map((i) => i.mappingId);
+    const ids = this.fixable().map((i) => i.mappingId);
     this.issues.set(await this.ipc.fixRotation(ids));
     this.mappings.set(await this.ipc.listMappings());
+    this.rotationMessage.set(
+      this.issues().length > 0
+        ? 'Aplicado. Lo que queda necesita que elijas la carpeta del mes.'
+        : '',
+    );
+  }
+
+  /** Guía manual: el usuario elige la carpeta del mes y se convierte en {mes}. */
+  protected async pickSide(i: RotationIssue, side: 'local' | 'drive'): Promise<void> {
+    const folder = await this.ipc.pickFolder();
+    if (!folder) {
+      return;
+    }
+    const res = await this.ipc.setRotationSide(i.mappingId, side, folder);
+    this.rotationMessage.set(res.message);
+    this.issues.set(res.issues);
+    if (res.ok) {
+      this.mappings.set(await this.ipc.listMappings());
+    }
   }
 
   protected nuevo(): void {
     void this.router.navigate(['/mapping/new']);
   }
 
-  protected editar(m: Mapping): void {
-    void this.router.navigate(['/mapping', m.id]);
+  protected editar(target: Mapping | string): void {
+    void this.router.navigate(['/mapping', typeof target === 'string' ? target : target.id]);
   }
 
   protected sincronizar(m: Mapping): void {
