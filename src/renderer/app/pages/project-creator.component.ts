@@ -414,11 +414,19 @@ interface Appearance {
           >
             <app-icon name="check" [size]="18" /> Proyecto creado:
             <code class="font-mono">{{ success() }}</code>
+            <button
+              (click)="copyName(success())"
+              title="Copiar nombre de la carpeta"
+              class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+            >
+              <app-icon [name]="copied() === success() ? 'check' : 'copy'" [size]="15" />
+              {{ copied() === success() ? 'Copiado' : 'Copiar nombre' }}
+            </button>
             @if (successPath()) {
               <button
                 (click)="openFolder(successPath())"
                 title="Abrir carpeta del proyecto"
-                class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
               >
                 <app-icon name="folderOpen" [size]="15" /> Abrir carpeta
               </button>
@@ -440,11 +448,18 @@ interface Appearance {
                     <code class="font-mono text-xs text-slate-500 normal-case">
                       {{ r.folderName }}
                     </code>
+                    <button
+                      (click)="copyName(r.folderName)"
+                      title="Copiar nombre de la carpeta"
+                      class="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-emerald-300/80 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200"
+                    >
+                      <app-icon [name]="copied() === r.folderName ? 'check' : 'copy'" [size]="14" />
+                    </button>
                     @if (r.projectPath) {
                       <button
                         (click)="openFolder(r.projectPath)"
                         title="Abrir carpeta del proyecto"
-                        class="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-emerald-300/80 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200"
+                        class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-emerald-300/80 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200"
                       >
                         <app-icon name="folderOpen" [size]="14" />
                       </button>
@@ -968,6 +983,32 @@ export class ProjectCreatorComponent {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /** Nombre copiado hace un instante (para mostrar «Copiado»). */
+  protected readonly copied = signal('');
+  private copiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Copia al portapapeles el nombre de la carpeta creada. */
+  protected async copyName(name: string | undefined): Promise<void> {
+    if (!name) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(name);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = name;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    this.copied.set(name);
+    if (this.copiedTimer) {
+      clearTimeout(this.copiedTimer);
+    }
+    this.copiedTimer = setTimeout(() => this.copied.set(''), 1500);
   }
 
   /** Abre en el explorador la carpeta de un proyecto recién creado. */
