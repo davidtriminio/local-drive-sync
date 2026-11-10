@@ -10,6 +10,7 @@ import type {
   RunSummary,
   TrashEntry,
 } from '../../shared/ipc-contract';
+import { DEFAULT_SUBFOLDERS } from '../../shared/ipc-contract';
 import type { IndexEntry } from '../domain/comparator';
 import { detectMonthFormat, toMonthTemplate } from '../domain/project-creator';
 
@@ -32,6 +33,15 @@ interface Database {
   lastMonthSeen: string;
 }
 
+/** Parte portable de la base de datos (lo que viaja entre PCs). */
+export interface ConfigData {
+  mappings: Mapping[];
+  clients: Client[];
+  events: EventItem[];
+  settings: AppSettings;
+  creatorPrefs: CreatorPrefs;
+}
+
 const DEFAULT_SETTINGS: AppSettings = {
   defaultExclusions: ['Thumbs.db', 'desktop.ini', '.DS_Store', '*.tmp', '*.bak'],
   preferredMonthFormat: 'Mes-Año',
@@ -46,7 +56,7 @@ const DEFAULT_CREATOR_PREFS: CreatorPrefs = {
   fileTypes: ['psd'],
   platforms: [],
   formats: [],
-  subfolders: [],
+  subfolders: [...DEFAULT_SUBFOLDERS],
   lastClient: '',
 };
 
@@ -340,6 +350,47 @@ export class Repository {
     }
   }
 
+  /** Nombre del cliente al que apunta `name` (por alias de fusión), o `name`. */
+  resolveClientName(name: string): string {
+    return this.db.clients.find((c) => c.aliases?.includes(name))?.name ?? name;
+  }
+
+  /**
+   * Fusiona `source` en `target`: pasa sus proyectos y carpetas, sustituye al
+   * origen en los eventos, y deja su nombre (y alias) como alias del destino
+   * para que el sistema los trate como el mismo cliente. No toca disco.
+   */
+  mergeClientInto(source: string, target: string): void {
+    const src = this.db.clients.find((c) => c.name === source);
+    const dst = this.db.clients.find((c) => c.name === target);
+    if (!src || !dst || src === dst) {
+      return;
+    }
+    for (const p of src.projects) {
+      const existing = dst.projects.find((x) => x.name === p.name);
+      if (!existing) {
+        dst.projects.push({ name: p.name, folders: [...p.folders] });
+      } else {
+        for (const f of p.folders) {
+          if (!existing.folders.includes(f)) {
+            existing.folders.push(f);
+          }
+        }
+      }
+    }
+    dst.aliases = [...new Set([...(dst.aliases ?? []), source, ...(src.aliases ?? [])])];
+    this.db.clients = this.db.clients.filter((c) => c !== src);
+    for (const e of this.db.events) {
+      if (e.clients.includes(source)) {
+        e.clients = [...new Set(e.clients.map((c) => (c === source ? target : c)))];
+      }
+    }
+    if (this.db.creatorPrefs.lastClient === source) {
+      this.db.creatorPrefs.lastClient = target;
+    }
+    this.persist();
+  }
+
   /** Elimina un proyecto del historial de un cliente (solo registro). */
   deleteClientProject(clientName: string, projectName: string): void {
     const client = this.db.clients.find((c) => c.name === clientName);
@@ -365,6 +416,63 @@ export class Repository {
     if (this.db.creatorPrefs.lastClient === clientName) {
       this.db.creatorPrefs.lastClient = '';
     }
+    this.persist();
+  }
+
+  // --- Migración de configuración ---
+  /** Configuración portable: sin historial, papelera ni índice (atados a rutas viejas). */
+  exportConfig(): ConfigData {
+    return structuredClone({
+      mappings: this.db.mappings,
+      clients: this.db.clients,
+      events: this.db.events,
+      settings: this.db.settings,
+      creatorPrefs: this.db.creatorPrefs,
+    });
+  }
+
+  /**
+   * Incorpora una configuración exportada: los mapeos y eventos se crean o
+   * reemplazan por id, los clientes se fusionan por nombre y los ajustes y
+   * preferencias del creador se sustituyen. No borra nada de lo existente.
+   */
+  importConfig(data: ConfigData): void {
+    for (const m of data.mappings) {
+      const idx = this.db.mappings.findIndex((x) => x.id === m.id);
+      if (idx >= 0) {
+        this.db.mappings[idx] = m;
+      } else {
+        this.db.mappings.push(m);
+      }
+    }
+    for (const inc of data.clients) {
+      const existing = this.db.clients.find((c) => c.name === inc.name);
+      if (!existing) {
+        this.db.clients.push(inc);
+        continue;
+      }
+      existing.icon = inc.icon || existing.icon;
+      existing.color = inc.color || existing.color;
+      existing.aliases = [...new Set([...(existing.aliases ?? []), ...(inc.aliases ?? [])])];
+      for (const p of inc.projects) {
+        const ep = existing.projects.find((x) => x.name === p.name);
+        if (!ep) {
+          existing.projects.push(p);
+        } else {
+          ep.folders = [...new Set([...ep.folders, ...p.folders])];
+        }
+      }
+    }
+    for (const e of data.events) {
+      const idx = this.db.events.findIndex((x) => x.id === e.id);
+      if (idx >= 0) {
+        this.db.events[idx] = e;
+      } else {
+        this.db.events.push(e);
+      }
+    }
+    this.db.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+    this.db.creatorPrefs = { ...DEFAULT_CREATOR_PREFS, ...data.creatorPrefs };
     this.persist();
   }
 

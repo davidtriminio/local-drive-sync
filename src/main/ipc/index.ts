@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import {
@@ -7,11 +8,15 @@ import {
   type MappingDraft,
   type AppSettings,
   type BatchClientResult,
+  type ConfigExportResult,
   type CreateBatchRequest,
   type CreateProjectRequest,
   type EventDraft,
   type EventItem,
   type ExportActivity,
+  type MigrationApplyRequest,
+  type MigrationPreview,
+  type MigrationResult,
   type SyncPlan,
   type SyncPreviewRequest,
   type SyncProgress,
@@ -31,6 +36,14 @@ import {
 import { BUILTIN_EVENT_IDS, mergeHondurasEvents } from '../domain/events';
 import { checkNotifications } from '../domain/notifications';
 import { importLegacyClients } from '../domain/legacy-import';
+import {
+  buildBundle,
+  createSkeleton,
+  detectRoots,
+  parseBundle,
+  remapConfig,
+  type ConfigBundle,
+} from '../domain/config-migration';
 import { creatorAssetsDir, platformsFile } from '../resources';
 
 /** Historial de clientes del proyecto Python anterior (import de una sola vez). */
@@ -135,6 +148,26 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   ipcMain.handle(IpcChannels.mappingsDelete, (_e, id: string) => {
     repo.deleteMapping(id);
   });
+
+  ipcMain.handle(
+    IpcChannels.mappingsOpenFolder,
+    async (_e, mappingId: string, side: 'local' | 'drive') => {
+      const m = repo.getMapping(mappingId);
+      if (!m) {
+        return false;
+      }
+      const now = new Date();
+      const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const dir =
+        side === 'local'
+          ? syncService.resolveLocalDir(m, key)
+          : syncService.resolveDriveDir(m, key);
+      if (!fs.existsSync(dir)) {
+        return false;
+      }
+      return (await shell.openPath(dir)) === '';
+    },
+  );
 
   ipcMain.handle(IpcChannels.mappingsRotationIssues, () =>
     findRotationIssues(repo.listMappings()),
@@ -268,6 +301,17 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   );
 
   ipcMain.handle(
+    IpcChannels.clientsMerge,
+    (_e, source: string, target: string, deleteMappingIds: string[]) => {
+      repo.mergeClientInto(sanitizeName(source), sanitizeName(target));
+      for (const id of deleteMappingIds ?? []) {
+        repo.deleteMapping(id);
+      }
+      return repo.listClients();
+    },
+  );
+
+  ipcMain.handle(
     IpcChannels.clientsDeleteProject,
     (_e, name: string, project: string) => {
       repo.deleteClientProject(sanitizeName(name), sanitizeName(project));
@@ -280,6 +324,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
   );
 
   ipcMain.handle(IpcChannels.projectCreate, (_e, req: CreateProjectRequest) => {
+    req = { ...req, client: repo.resolveClientName(sanitizeName(req.client)) };
     const result = projectCreator.create(req);
     if (result.status === 'created' && result.folderName) {
       repo.recordProject(
@@ -296,6 +341,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
         platforms: req.platforms,
         formats: req.formats?.map((f) => `${f.platform}::${f.format}`) ?? [],
         subfolders: req.subfolders ?? [],
+        psdOnly: req.psdOnly ?? false,
         lastClient: sanitizeName(req.client),
       });
     }
@@ -309,7 +355,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
       const project = sanitizeName(req.project);
       const results: BatchClientResult[] = [];
       for (const rawClient of req.clients) {
-        const client = sanitizeName(rawClient);
+        const client = repo.resolveClientName(sanitizeName(rawClient));
         if (!client) {
           continue;
         }
@@ -322,6 +368,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
             platforms: req.platforms,
             formats: req.formats,
             subfolders: req.subfolders,
+            psdOnly: req.psdOnly,
             date: req.date,
             confirmDuplicate: req.confirmDuplicate,
           });
@@ -339,6 +386,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
             status: 'created',
             folderName: result.folderName,
             projectPath: result.projectPath,
+            psdPaths: result.psdPaths,
           });
         } catch (err) {
           results.push({ client, status: 'error', error: String(err) });
@@ -353,6 +401,7 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
           platforms: req.platforms,
           formats: req.formats?.map((f) => `${f.platform}::${f.format}`) ?? [],
           subfolders: req.subfolders ?? [],
+          psdOnly: req.psdOnly ?? false,
           lastClient: created[0].client,
         });
       }
@@ -413,6 +462,85 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
     }
     return checkNotifications(repo, syncService);
   });
+
+  // --- Migración de configuración entre PCs ---
+  /** Archivo elegido y a la espera de que el usuario confirme el remapeo. */
+  let pendingBundle: ConfigBundle | null = null;
+
+  ipcMain.handle(IpcChannels.configExport, async (): Promise<ConfigExportResult> => {
+    const win = ctx.getWindow();
+    const options = {
+      title: 'Exportar configuración',
+      defaultPath: `local-drive-sync-config-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'Configuración', extensions: ['json'] }],
+    };
+    const result = win
+      ? await dialog.showSaveDialog(win, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) {
+      return { ok: false, canceled: true };
+    }
+    try {
+      const bundle = buildBundle(repo, app.getVersion());
+      fs.writeFileSync(result.filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+      return { ok: true, path: result.filePath };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
+    }
+  });
+
+  ipcMain.handle(
+    IpcChannels.configImportPick,
+    async (): Promise<MigrationPreview | null> => {
+      const win = ctx.getWindow();
+      const options = {
+        title: 'Importar configuración',
+        properties: ['openFile' as const],
+        filters: [{ name: 'Configuración', extensions: ['json'] }],
+      };
+      const result = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options);
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+      const file = result.filePaths[0];
+      pendingBundle = parseBundle(fs.readFileSync(file, 'utf-8'));
+      const homeDir = app.getPath('home');
+      return {
+        fileName: path.basename(file),
+        exportedAt: pendingBundle.exportedAt,
+        counts: {
+          mappings: pendingBundle.mappings.length,
+          clients: pendingBundle.clients.length,
+          events: pendingBundle.events.length,
+        },
+        roots: detectRoots(pendingBundle, homeDir),
+        homeDir,
+      };
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.configImportApply,
+    (_e, req: MigrationApplyRequest): MigrationResult => {
+      if (!pendingBundle) {
+        throw new Error('No hay ningún archivo de configuración seleccionado.');
+      }
+      repo.importConfig(remapConfig(pendingBundle, req.roots));
+      const { mappings, clients, events } = pendingBundle;
+      pendingBundle = null;
+      const skeleton = createSkeleton(repo, syncService, req);
+      exportWatcher.reconfigure();
+      return {
+        mappings: mappings.length,
+        clients: clients.length,
+        events: events.length,
+        created: skeleton.created,
+        warnings: skeleton.warnings,
+      };
+    },
+  );
 
   ipcMain.handle(IpcChannels.creatorPrefsGet, () => {
     const prefs = repo.getCreatorPrefs();

@@ -82,6 +82,9 @@ function sanitize(name: string): string {
                     </h2>
                     <p class="text-xs text-slate-500">
                       {{ c.projects.length }} proyecto(s)
+                      @if (c.aliases?.length) {
+                        · también: {{ c.aliases!.join(', ').replaceAll('_', ' ') }}
+                      }
                     </p>
                   </div>
                   <app-icon
@@ -91,6 +94,15 @@ function sanitize(name: string): string {
                     [class.rotate-90]="expanded().has(c.name)"
                   />
                 </button>
+                @if (clients().length > 1) {
+                  <button
+                    (click)="startMerge(c)"
+                    class="icon-btn"
+                    title="Fusionar con otro cliente"
+                  >
+                    <app-icon name="layers" [size]="16" />
+                  </button>
+                }
                 <button
                   (click)="startDelete(c)"
                   class="icon-btn hover:bg-rose-500/15 hover:text-rose-300"
@@ -99,6 +111,53 @@ function sanitize(name: string): string {
                   <app-icon name="trash" [size]="16" />
                 </button>
               </div>
+
+              <!-- Fusionar: este cliente pasa a ser el mismo que otro -->
+              @if (mergeName() === c.name) {
+                <div
+                  class="mt-3 space-y-3 rounded-xl border border-sky-500/40 bg-sky-500/10 p-4 text-sm text-sky-100"
+                >
+                  <p class="flex items-start gap-2">
+                    <app-icon name="layers" [size]="18" />
+                    <span>
+                      Mover «{{ c.name.replaceAll('_', ' ') }}» a otro cliente: sus
+                      proyectos y eventos pasan al destino, y el sistema los trata
+                      como el mismo (también los exports con el nombre anterior).
+                    </span>
+                  </p>
+                  <select
+                    [ngModel]="mergeTarget()"
+                    (ngModelChange)="mergeTarget.set($event)"
+                    class="field"
+                  >
+                    <option value="">Elige el cliente destino…</option>
+                    @for (o of clients(); track o.name) {
+                      @if (o.name !== c.name) {
+                        <option [value]="o.name">{{ o.name.replaceAll('_', ' ') }}</option>
+                      }
+                    }
+                  </select>
+                  @if (mergeTarget() && related(c).length > 0 && relatedByName(mergeTarget()).length > 0) {
+                    <label class="flex items-start gap-2 text-xs">
+                      <input type="checkbox" [(ngModel)]="mergeDropMappings" class="mt-0.5" />
+                      <span>
+                        Eliminar también el mapeo «{{ relatedNames(c) }}» (sus
+                        exports irán al mapeo de «{{ mergeTarget().replaceAll('_', ' ') }}»).
+                      </span>
+                    </label>
+                  }
+                  <div class="flex gap-2">
+                    <button
+                      (click)="confirmMerge(c)"
+                      [disabled]="!mergeTarget()"
+                      class="btn-primary btn-sm"
+                    >
+                      Fusionar
+                    </button>
+                    <button (click)="cancelMerge()" class="btn-ghost btn-sm">Cancelar</button>
+                  </div>
+                </div>
+              }
 
               <!-- Confirmación de borrado con mapeos relacionados -->
               @if (confirmName() === c.name) {
@@ -189,6 +248,9 @@ export class ClientsComponent {
   protected readonly mappings = signal<Mapping[]>([]);
   protected readonly expanded = signal<Set<string>>(new Set());
   protected readonly confirmName = signal('');
+  protected readonly mergeName = signal('');
+  protected readonly mergeTarget = signal('');
+  protected mergeDropMappings = false;
 
   constructor() {
     void this.load();
@@ -247,7 +309,37 @@ export class ClientsComponent {
       .join(', ');
   }
 
+  protected relatedByName(name: string): Mapping[] {
+    return this.mappings().filter((m) => sanitize(m.name) === name);
+  }
+
+  protected startMerge(c: Client): void {
+    this.confirmName.set('');
+    this.mergeName.set(c.name);
+    this.mergeTarget.set('');
+    this.mergeDropMappings = false;
+  }
+
+  protected cancelMerge(): void {
+    this.mergeName.set('');
+  }
+
+  protected async confirmMerge(c: Client): Promise<void> {
+    const target = this.mergeTarget();
+    if (!target) {
+      return;
+    }
+    const dropIds =
+      this.mergeDropMappings && this.relatedByName(target).length > 0
+        ? this.related(c).map((m) => m.id)
+        : [];
+    this.clients.set(await this.ipc.mergeClients(c.name, target, dropIds));
+    this.mappings.set(await this.ipc.listMappings());
+    this.mergeName.set('');
+  }
+
   protected startDelete(c: Client): void {
+    this.mergeName.set('');
     this.confirmName.set(c.name);
   }
 

@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { IpcService } from '../services/ipc.service';
 import { IconComponent } from '../shared/icon.component';
 import { chipStyle } from '../shared/colors';
+import { SyncAllService } from '../services/sync-all.service';
 import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
 
 /** Pantalla principal: lista de mapeos configurados. */
@@ -26,10 +27,28 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
             </p>
           </div>
         </div>
-        <button (click)="nuevo()" class="btn-primary">
-          <app-icon name="plus" [size]="18" /> Nuevo mapeo
-        </button>
+        <div class="flex gap-2">
+          @if (mappings().length > 0) {
+            <button
+              (click)="sincronizarTodo()"
+              [disabled]="syncAll.running()"
+              class="btn-ghost"
+            >
+              <app-icon name="refresh" [size]="16" />
+              {{ syncAll.running() ? syncAll.status() : 'Sincronizar todo' }}
+            </button>
+          }
+          <button (click)="nuevo()" class="btn-primary">
+            <app-icon name="plus" [size]="18" /> Nuevo mapeo
+          </button>
+        </div>
       </header>
+
+      @if (syncAll.result() || folderMessage()) {
+        <p class="mb-4 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2.5 text-sm text-slate-300">
+          {{ folderMessage() || syncAll.result() }}
+        </p>
+      }
 
       @if (issues().length > 0) {
         <div
@@ -158,6 +177,20 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
                     <app-icon name="refresh" [size]="15" /> Sincronizar
                   </button>
                   <button
+                    (click)="abrirCarpeta(m, 'local')"
+                    class="icon-btn"
+                    title="Abrir carpeta local"
+                  >
+                    <app-icon name="folderOpen" [size]="16" />
+                  </button>
+                  <button
+                    (click)="abrirCarpeta(m, 'drive')"
+                    class="icon-btn"
+                    title="Abrir carpeta de Drive"
+                  >
+                    <app-icon name="layers" [size]="16" />
+                  </button>
+                  <button
                     (click)="editar(m)"
                     class="icon-btn"
                     title="Editar"
@@ -183,6 +216,8 @@ import type { Mapping, RotationIssue } from '../../../shared/ipc-contract';
 export class DashboardComponent {
   private readonly ipc = inject(IpcService);
   private readonly router = inject(Router);
+  protected readonly syncAll = inject(SyncAllService);
+  protected readonly folderMessage = signal('');
 
   protected readonly mappings = signal<Mapping[]>([]);
   protected readonly loading = signal(true);
@@ -230,6 +265,21 @@ export class DashboardComponent {
     if (res.ok) {
       this.mappings.set(await this.ipc.listMappings());
     }
+  }
+
+  protected async sincronizarTodo(): Promise<void> {
+    this.folderMessage.set('');
+    await this.syncAll.run(this.mappings().map((m) => m.id));
+  }
+
+  /** Abre la carpeta del mes actual del mapeo (local o Drive) en el explorador. */
+  protected async abrirCarpeta(m: Mapping, side: 'local' | 'drive'): Promise<void> {
+    const ok = await this.ipc.openMappingFolder(m.id, side);
+    this.folderMessage.set(
+      ok
+        ? ''
+        : `La carpeta ${side === 'local' ? 'local' : 'de Drive'} de «${m.name}» no existe todavía este mes.`,
+    );
   }
 
   protected nuevo(): void {

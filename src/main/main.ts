@@ -1,15 +1,12 @@
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
 import * as path from 'node:path';
+import { appIconPath } from './resources';
 import { registerIpcHandlers, type IpcHandles } from './ipc';
 import { IpcChannels } from '../shared/ipc-contract';
 
 /** En desarrollo cargamos el dev-server de Angular; en producción, el build estático. */
 const isDev = !app.isPackaged && process.env['NODE_ENV'] === 'development';
 const DEV_SERVER_URL = 'http://localhost:4200';
-
-/** Icono del tray/ventana (PNG 32×32 esmeralda) incrustado como data URL. */
-const TRAY_ICON =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA/UlEQVR4nMXX7UdDcRjG8es/qKyaVqm11EoP0/q7NqUdnZycnjs62uyhpzFGRERERESMiIj+oCvOi8Op+b3aznXzef29X943YJj1nxv2gqnxb/Lf1+wnY3zt65Jx6BrPfV4wTpH46kedCuECK50aFcIFlt+rVAjiS28VKmHxtUwlLLycUwnZZ59KmH86oxLmHj0qYfbhlErI3J9QCTN3R1RC+vaQSphu71MJU609KmGy6VIJE1e7VMJ4w6ESUtUdKmGsbFMJSX+bSsFVNOpZVAhvwpHjEhXCBYYPtqgQ+Q0S7ibj1PU7GnI2GAfjfzhoF9lPxvjfGbAK7AVT4xd+NnTzPllhMAAAAABJRU5ErkJggg==';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -25,7 +22,7 @@ async function createWindow(): Promise<void> {
     minHeight: 600,
     show: false,
     backgroundColor: '#0f172a',
-    icon: nativeImage.createFromDataURL(TRAY_ICON),
+    icon: nativeImage.createFromPath(appIconPath()),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
@@ -90,7 +87,9 @@ function showWindow(): void {
 
 /** Crea el icono de bandeja con su menú (Mostrar / Salir). */
 function createTray(): void {
-  const image = nativeImage.createFromDataURL(TRAY_ICON);
+  const image = nativeImage
+    .createFromPath(appIconPath())
+    .resize({ width: 32, height: 32 });
   tray = new Tray(image);
   tray.setToolTip('Local Drive Sync');
   const menu = Menu.buildFromTemplate([

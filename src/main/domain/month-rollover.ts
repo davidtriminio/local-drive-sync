@@ -14,7 +14,7 @@ const CHECK_INTERVAL_MS = 60_000;
  * para crear carpetas (evita fabricar rutas si, por ejemplo, Drive no está
  * montado). Vacío si el token está en el primer segmento.
  */
-function staticPrefix(pattern: string): string {
+export function staticPrefix(pattern: string): string {
   const parts = pattern.split(/([\\/]+)/);
   const out: string[] = [];
   for (const part of parts) {

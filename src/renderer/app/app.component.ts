@@ -161,6 +161,8 @@ export class AppComponent implements OnDestroy {
   protected readonly toasts = signal<ExportToast[]>([]);
   protected readonly monthNotice = signal<MonthChangeNotice | null>(null);
   private toastSeq = 0;
+  private readonly onFocus: () => void;
+  private readonly pollTimer: ReturnType<typeof setInterval>;
   private readonly unsubFullScreen: () => void;
   private readonly unsubSyncDone: () => void;
   private readonly unsubExport: () => void;
@@ -199,7 +201,18 @@ export class AppComponent implements OnDestroy {
     });
 
     // Avisos de la vigilancia de la carpeta de export.
-    this.unsubExport = this.ipc.onExportActivity((a) => this.pushToast(a));
+    this.unsubExport = this.ipc.onExportActivity((a) => {
+      this.pushToast(a);
+      // Un archivo movido a local puede dejar pendientes: actualiza al instante.
+      if (a.kind === 'moved') {
+        void this.notifications.refresh();
+      }
+    });
+
+    // Cambios hechos fuera de la app: reescanea al volver a la ventana y cada minuto.
+    this.onFocus = () => void this.notifications.refresh();
+    window.addEventListener('focus', this.onFocus);
+    this.pollTimer = setInterval(() => void this.notifications.refresh(), 60_000);
 
     // Cambio de mes: muestra el aviso y refresca los pendientes.
     this.unsubMonth = this.ipc.onMonthChanged((n) => {
@@ -213,6 +226,8 @@ export class AppComponent implements OnDestroy {
     this.unsubSyncDone();
     this.unsubExport();
     this.unsubMonth();
+    window.removeEventListener('focus', this.onFocus);
+    clearInterval(this.pollTimer);
   }
 
   protected toggleFullScreen(): void {

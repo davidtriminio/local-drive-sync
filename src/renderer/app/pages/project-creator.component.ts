@@ -34,7 +34,7 @@ interface Appearance {
     EventDialogComponent,
   ],
   template: `
-    <section class="mx-auto max-w-3xl p-8">
+    <section class="mx-auto max-w-4xl p-8">
       <header class="mb-8 flex items-center gap-3">
         <div
           class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-400 to-purple-600 text-white shadow-lg shadow-purple-500/20"
@@ -303,14 +303,28 @@ interface Appearance {
           <label class="mb-2 block text-sm font-medium text-slate-300">
             Tipos de archivo
           </label>
-          <div class="flex gap-2">
-            <button (click)="psd = !psd" [class]="toggleClass(psd)">
+          <div class="flex flex-wrap items-center gap-2">
+            <button (click)="psd = !psd" [class]="toggleClass(psd)" [disabled]="psdOnly">
               <app-icon name="image" [size]="16" /> PSD
             </button>
-            <button (click)="ai = !ai" [class]="toggleClass(ai)">
+            <button (click)="ai = !ai" [class]="toggleClass(ai)" [disabled]="psdOnly">
               <app-icon name="file" [size]="16" /> AI
             </button>
+            <span class="mx-1 h-6 w-px bg-white/10"></span>
+            <button
+              type="button"
+              (click)="togglePsdOnly()"
+              [class]="toggleClass(psdOnly)"
+              title="El PSD queda en la raíz de la carpeta del proyecto, sin subcarpetas"
+            >
+              <app-icon [name]="psdOnly ? 'check' : 'folder'" [size]="16" /> Solo PSD
+            </button>
           </div>
+          @if (psdOnly) {
+            <p class="mt-2 text-xs text-slate-500">
+              El PSD queda en la raíz de la carpeta del proyecto, sin subcarpetas.
+            </p>
+          }
         </div>
 
         <!-- Plataformas -->
@@ -351,6 +365,7 @@ interface Appearance {
         </div>
 
         <!-- Subcarpetas -->
+        @if (!psdOnly) {
         <details class="group rounded-xl border border-white/5 bg-slate-950/30 p-4">
           <summary
             class="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-slate-300"
@@ -361,7 +376,15 @@ interface Appearance {
               <app-icon name="chevronRight" [size]="16" />
             </span>
           </summary>
-          <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div class="mt-4 flex gap-2">
+            <button type="button" (click)="setAllSubfolders(true)" class="btn-ghost">
+              Seleccionar todo
+            </button>
+            <button type="button" (click)="setAllSubfolders(false)" class="btn-ghost">
+              Seleccionar nada
+            </button>
+          </div>
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             @for (s of subfolders; track s) {
               <button
                 (click)="toggleSubfolder(s)"
@@ -377,6 +400,7 @@ interface Appearance {
             }
           </div>
         </details>
+        }
 
         @if (error()) {
           <div
@@ -410,18 +434,28 @@ interface Appearance {
 
         @if (success()) {
           <div
-            class="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
+            class="flex flex-wrap items-center gap-x-2 gap-y-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
           >
             <app-icon name="check" [size]="18" /> Proyecto creado:
-            <code class="font-mono">{{ success() }}</code>
+            <code class="min-w-0 break-all font-mono">{{ success() }}</code>
+            <div class="ml-auto flex flex-wrap gap-2">
             <button
               (click)="copyName(success())"
               title="Copiar nombre de la carpeta"
-              class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+              class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
             >
               <app-icon [name]="copied() === success() ? 'check' : 'copy'" [size]="15" />
               {{ copied() === success() ? 'Copiado' : 'Copiar nombre' }}
             </button>
+            @if (successPsd()) {
+              <button
+                (click)="openFolder(successPsd())"
+                title="Abrir el PSD directamente"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25"
+              >
+                <app-icon name="image" [size]="15" /> Abrir PSD
+              </button>
+            }
             @if (successPath()) {
               <button
                 (click)="openFolder(successPath())"
@@ -431,6 +465,7 @@ interface Appearance {
                 <app-icon name="folderOpen" [size]="15" /> Abrir carpeta
               </button>
             }
+            </div>
           </div>
         }
 
@@ -455,6 +490,15 @@ interface Appearance {
                     >
                       <app-icon [name]="copied() === r.folderName ? 'check' : 'copy'" [size]="14" />
                     </button>
+                    @if (r.psdPaths?.length) {
+                      <button
+                        (click)="openFolder(r.psdPaths![0])"
+                        title="Abrir el PSD directamente"
+                        class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-emerald-300/80 transition-colors hover:bg-emerald-500/15 hover:text-emerald-200"
+                      >
+                        <app-icon name="image" [size]="14" />
+                      </button>
+                    }
                     @if (r.projectPath) {
                       <button
                         (click)="openFolder(r.projectPath)"
@@ -537,6 +581,8 @@ export class ProjectCreatorComponent {
   protected readonly success = signal('');
   /** Ruta absoluta del último proyecto creado (para abrir su carpeta). */
   protected readonly successPath = signal('');
+  /** Primer PSD del último proyecto creado (para abrirlo directamente). */
+  protected readonly successPsd = signal('');
   protected readonly duplicateFolder = signal('');
   protected readonly busy = signal(false);
   protected readonly showIconPicker = signal(false);
@@ -573,6 +619,8 @@ export class ProjectCreatorComponent {
   protected project = '';
   protected psd = true;
   protected ai = false;
+  /** Solo PSD: sin subcarpetas, el PSD queda en la raíz del proyecto. */
+  protected psdOnly = false;
 
   constructor() {
     void this.load();
@@ -605,6 +653,7 @@ export class ProjectCreatorComponent {
 
     // Restaura la última configuración usada; si falta, valores por defecto.
     this.basePath = prefs.basePath;
+    this.psdOnly = prefs.psdOnly ?? false;
     if (prefs.fileTypes.length > 0) {
       this.psd = prefs.fileTypes.includes('psd');
       this.ai = prefs.fileTypes.includes('ai');
@@ -617,11 +666,7 @@ export class ProjectCreatorComponent {
       ),
     );
     this.selectedFormats.set(this.initialFormatSelection(platforms, prefs.formats));
-    this.selectedSubfolders.set(
-      new Set(
-        prefs.subfolders.length > 0 ? prefs.subfolders : DEFAULT_SUBFOLDERS,
-      ),
-    );
+    this.selectedSubfolders.set(new Set(prefs.subfolders));
     if (prefs.lastClient) {
       this.client = prefs.lastClient;
       this.syncClientStyle();
@@ -630,7 +675,9 @@ export class ProjectCreatorComponent {
 
   /** Nombre saneado del cliente escrito, para buscarlo en la lista. */
   private clientKey(): string {
-    return this.client.trim().toLowerCase().replace(/\s+/g, '_');
+    const key = this.client.trim().toLowerCase().replace(/\s+/g, '_');
+    // Un cliente fusionado se reconoce por su alias: apunta al cliente destino.
+    return this.clients().find((c) => c.aliases?.includes(key))?.name ?? key;
   }
 
   protected isActive(name: string): boolean {
@@ -765,6 +812,14 @@ export class ProjectCreatorComponent {
     }
   }
 
+  protected togglePsdOnly(): void {
+    this.psdOnly = !this.psdOnly;
+    if (this.psdOnly) {
+      this.psd = true;
+      this.ai = false;
+    }
+  }
+
   protected toggleClass(active: boolean): string {
     const base =
       'inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors';
@@ -836,6 +891,10 @@ export class ProjectCreatorComponent {
     this.selectedPlatforms.set(new Set(this.selectedFormatSelections().map((f) => f.platform)));
   }
 
+  protected setAllSubfolders(all: boolean): void {
+    this.selectedSubfolders.set(new Set(all ? this.subfolders : []));
+  }
+
   protected toggleSubfolder(name: string): void {
     const next = new Set(this.selectedSubfolders());
     next.has(name) ? next.delete(name) : next.add(name);
@@ -892,7 +951,7 @@ export class ProjectCreatorComponent {
   /** Fuerza al <select> a reflejar de nuevo la selección real. */
   private resetEventSelect(): void {
     const current = this.selectedEventId();
-    this.selectedEventId.set(' ');
+    this.selectedEventId.set(' ');
     queueMicrotask(() => this.selectedEventId.set(current));
   }
 
@@ -966,6 +1025,7 @@ export class ProjectCreatorComponent {
         platforms: this.selectedPlatformNames(formats),
         formats,
         subfolders: [...this.selectedSubfolders()],
+        psdOnly: this.psdOnly,
         eventId: this.selectedEventId(),
         date: this.effectiveEventDate(),
         confirmDuplicate,
@@ -1022,6 +1082,7 @@ export class ProjectCreatorComponent {
     this.error.set('');
     this.success.set('');
     this.successPath.set('');
+    this.successPsd.set('');
     if (!confirmDuplicate) {
       this.duplicateFolder.set('');
     }
@@ -1073,6 +1134,7 @@ export class ProjectCreatorComponent {
         platforms: this.selectedPlatformNames(formats),
         formats,
         subfolders: [...this.selectedSubfolders()],
+        psdOnly: this.psdOnly,
         clientIcon: this.clientIcon,
         clientColor: this.clientColor,
         confirmDuplicate,
@@ -1097,6 +1159,7 @@ export class ProjectCreatorComponent {
       }
       this.success.set(result.folderName ?? '');
       this.successPath.set(result.projectPath ?? '');
+      this.successPsd.set(result.psdPaths?.[0] ?? '');
       this.duplicateFolder.set('');
       this.project = '';
       await this.load();

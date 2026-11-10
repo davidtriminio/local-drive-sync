@@ -9,6 +9,7 @@ import {
   type ExportActivity,
   type MonthChangeNotice,
   type MappingDraft,
+  type MigrationApplyRequest,
   type SyncPlan,
   type SyncPreviewRequest,
   type SyncProgress,
@@ -34,6 +35,8 @@ const api: Api = {
   listRotationIssues: () => ipcRenderer.invoke(IpcChannels.mappingsRotationIssues),
   fixRotation: (ids: string[]) =>
     ipcRenderer.invoke(IpcChannels.mappingsFixRotation, ids),
+  openMappingFolder: (mappingId: string, side: 'local' | 'drive') =>
+    ipcRenderer.invoke(IpcChannels.mappingsOpenFolder, mappingId, side),
   setRotationSide: (mappingId: string, side: 'local' | 'drive', folder: string) =>
     ipcRenderer.invoke(IpcChannels.mappingsSetRotationSide, mappingId, side, folder),
   createClient: (name: string, icon?: string, color?: string) =>
@@ -62,6 +65,8 @@ const api: Api = {
     ipcRenderer.invoke(IpcChannels.clientsSetColor, name, color),
   deleteClient: (name: string, mappingIds: string[]) =>
     ipcRenderer.invoke(IpcChannels.clientsDelete, name, mappingIds),
+  mergeClients: (source: string, target: string, deleteMappingIds: string[]) =>
+    ipcRenderer.invoke(IpcChannels.clientsMerge, source, target, deleteMappingIds),
   deleteClientProject: (name: string, project: string) =>
     ipcRenderer.invoke(IpcChannels.clientsDeleteProject, name, project),
   listPlatforms: () => ipcRenderer.invoke(IpcChannels.platformsList),
@@ -81,6 +86,10 @@ const api: Api = {
   getCreatorPrefs: () => ipcRenderer.invoke(IpcChannels.creatorPrefsGet),
   setCreatorBasePath: (basePath: string) =>
     ipcRenderer.invoke(IpcChannels.creatorSetBasePath, basePath),
+  exportConfig: () => ipcRenderer.invoke(IpcChannels.configExport),
+  pickConfigImport: () => ipcRenderer.invoke(IpcChannels.configImportPick),
+  applyConfigImport: (req: MigrationApplyRequest) =>
+    ipcRenderer.invoke(IpcChannels.configImportApply, req),
   onSyncProgress: (cb: (p: SyncProgress) => void) => {
     const listener = (_e: IpcRendererEvent, payload: SyncProgress): void =>
       cb(payload);

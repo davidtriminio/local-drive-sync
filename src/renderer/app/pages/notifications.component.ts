@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { NotificationsStore } from '../services/notifications.store';
 import { IconComponent } from '../shared/icon.component';
 import { chipStyle } from '../shared/colors';
+import { SyncAllService } from '../services/sync-all.service';
 import type { SyncNotification } from '../../../shared/ipc-contract';
 
 /**
@@ -14,8 +15,8 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
   standalone: true,
   imports: [IconComponent],
   template: `
-    <section class="mx-auto max-w-3xl p-8">
-      <header class="mb-8 flex items-center justify-between gap-3">
+    <section class="mx-auto max-w-3xl p-10">
+      <header class="mb-10 flex flex-wrap items-center justify-between gap-5">
         <div class="flex items-center gap-3">
           <div
             class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-orange-500/20"
@@ -34,6 +35,16 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
             <app-icon name="refresh" [size]="16" />
             {{ store.loading() ? 'Revisando…' : 'Revisar' }}
           </button>
+          @if (store.notifications().length > 0) {
+            <button
+              (click)="syncEverything()"
+              [disabled]="syncAll.running()"
+              class="btn-primary"
+            >
+              <app-icon name="sparkles" [size]="16" />
+              {{ syncAll.running() ? syncAll.status() : 'Sincronizar todo' }}
+            </button>
+          }
           @if (store.unreadCount() > 0) {
             <button (click)="markAll()" class="btn-ghost">
               <app-icon name="check" [size]="16" /> Marcar todo leído
@@ -41,6 +52,12 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
           }
         </div>
       </header>
+
+      @if (syncAll.result()) {
+        <p class="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-200">
+          {{ syncAll.result() }}
+        </p>
+      }
 
       @if (store.notifications().length === 0) {
         <div
@@ -56,10 +73,10 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
           </p>
         </div>
       } @else {
-        <ul class="space-y-3">
+        <ul class="space-y-4">
           @for (n of store.notifications(); track n.mappingId) {
             <li
-              class="rounded-2xl border p-4 transition-colors"
+              class="rounded-2xl border p-5 transition-colors"
               [class]="
                 n.unread
                   ? 'border-amber-500/40 bg-amber-500/5'
@@ -67,9 +84,9 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
               "
             >
               <div class="flex items-start justify-between gap-4">
-                <div class="flex min-w-0 gap-3">
+                <div class="flex min-w-0 gap-4">
                   <div
-                    class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    class="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
                     [style]="chip(n.color)"
                   >
                     <app-icon [name]="n.icon" [size]="20" />
@@ -105,16 +122,28 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
                     </ul>
                   </div>
                 </div>
-                <div class="flex shrink-0 flex-col items-end gap-1.5">
-                  <button (click)="sync(n)" class="btn-primary btn-sm">
-                    <app-icon name="refresh" [size]="15" /> Sincronizar
+                @if (n.unread) {
+                  <button (click)="markRead(n)" class="btn-ghost btn-sm shrink-0">
+                    Marcar leído
                   </button>
-                  @if (n.unread) {
-                    <button (click)="markRead(n)" class="btn-ghost btn-sm">
-                      Marcar leído
-                    </button>
-                  }
-                </div>
+                }
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-4">
+                <button
+                  (click)="syncOne(n)"
+                  [disabled]="syncAll.running()"
+                  class="btn-primary btn-sm"
+                >
+                  <app-icon name="sparkles" [size]="15" />
+                  {{ syncAll.running() ? syncAll.status() : 'Sincronizar todo' }}
+                </button>
+                <button
+                  (click)="syncPartial(n)"
+                  [disabled]="syncAll.running()"
+                  class="btn-ghost btn-sm"
+                >
+                  <app-icon name="check" [size]="15" /> Sincronizar parcial
+                </button>
               </div>
             </li>
           }
@@ -127,6 +156,7 @@ export class NotificationsComponent {
   protected readonly store = inject(NotificationsStore);
   private readonly router = inject(Router);
   protected readonly chip = chipStyle;
+  protected readonly syncAll = inject(SyncAllService);
 
   constructor() {
     void this.store.refresh();
@@ -149,7 +179,19 @@ export class NotificationsComponent {
     void this.store.markAllRead();
   }
 
-  protected sync(n: SyncNotification): void {
-    void this.router.navigate(['/sync', n.mappingId]);
+  protected syncEverything(): void {
+    void this.syncAll.run(this.store.notifications().map((n) => n.mappingId));
+  }
+
+  /** Sube todo lo pendiente de este mapeo sin pasos intermedios. */
+  protected syncOne(n: SyncNotification): void {
+    void this.syncAll.run([n.mappingId]);
+  }
+
+  /** Abre el asistente directamente en el selector de archivos. */
+  protected syncPartial(n: SyncNotification): void {
+    void this.router.navigate(['/sync', n.mappingId], {
+      queryParams: { from: 'notifications', pick: '1' },
+    });
   }
 }

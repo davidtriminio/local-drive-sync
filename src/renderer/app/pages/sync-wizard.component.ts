@@ -30,7 +30,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
           </div>
           <h1 class="page-title">Sincronizar</h1>
         </div>
-        <a routerLink="/" class="btn-ghost">← Volver</a>
+        <a [routerLink]="backLink" class="btn-ghost">← Volver</a>
       </header>
 
       @if (error()) {
@@ -263,7 +263,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
             archivos a la nube en segundo plano.
           </p>
           <div class="mt-4 flex gap-3">
-            <a routerLink="/" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400">
+            <a [routerLink]="backLink" class="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400">
               Hecho
             </a>
             <a routerLink="/history" class="btn-ghost">
@@ -407,11 +407,20 @@ export class SyncWizardComponent implements OnDestroy {
   );
 
   private mappingId = '';
+  /** A dónde vuelve «Volver/Hecho»: la página desde la que se abrió. */
+  protected backLink = '/';
   private unsubProgress: (() => void) | null = null;
   private unsubDone: (() => void) | null = null;
 
   constructor() {
     this.mappingId = this.route.snapshot.paramMap.get('id') ?? '';
+    if (this.route.snapshot.queryParamMap.get('from') === 'notifications') {
+      this.backLink = '/notifications';
+    }
+    // «Sincronizar parcial»: abre el selector de archivos al entrar.
+    if (this.route.snapshot.queryParamMap.get('pick') === '1') {
+      void this.abrirSelector();
+    }
     if (!this.mappingId) {
       void this.router.navigate(['/']);
       return;
