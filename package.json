@@ -2,9 +2,18 @@
   "name": "local-drive-sync",
   "version": "0.1.0",
   "description": "Sincronizador selectivo de arte final Local -> Google Drive (Electron + Angular).",
-  "author": "David Triminio <davidtriminio21@gmail.com>",
-  "license": "UNLICENSED",
+  "author": "David Triminio",
+  "license": "MIT",
   "private": true,
+  "homepage": "https://github.com/davidtriminio/local-drive-sync#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davidtriminio/local-drive-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidtriminio/local-drive-sync/issues"
+  },
+  "keywords": ["electron", "angular", "google-drive", "sync", "windows"],
   "main": "dist/main/main.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.main.json",
