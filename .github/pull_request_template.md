@@ -1,13 +1,13 @@
-## Qué cambia
+## Summary
 
-<!-- Resumen breve del cambio y por qué -->
+<!-- What changes and why -->
 
-## Cómo probarlo
+## How to test
 
-<!-- Pasos para verificar -->
+<!-- Steps to verify -->
 
-## Lista de verificación
+## Checklist
 
-- [ ] `npm run build` termina sin errores
-- [ ] No rompe la regla unidireccional Local → Drive (nunca borra en Drive)
-- [ ] Actualicé la documentación si aplica
+- [ ] `npm run build` passes
+- [ ] Does not break the one-way Local → Drive rule (never deletes on Drive)
+- [ ] Docs updated if needed
