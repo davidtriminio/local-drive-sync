@@ -194,6 +194,14 @@ export class ExportWatcher {
     const name = matchKey(m.name);
     if (name) {
       keys.add(name);
+      // Clientes fusionados en el de este mapeo: sus exports también le llegan.
+      const client = this.repo.listClients().find((c) => matchKey(c.name) === name);
+      for (const alias of client?.aliases ?? []) {
+        const ak = matchKey(alias);
+        if (ak) {
+          keys.add(ak);
+        }
+      }
     }
     const last = m.localPattern.split(/[\\/]+/).filter(Boolean).pop() ?? '';
     if (last && !/\{mes\}/i.test(last) && !looksLikeMonth(last)) {

@@ -3,6 +3,7 @@ import type {
   Api,
   AppSettings,
   Client,
+  ConfigExportResult,
   CreateBatchRequest,
   CreateBatchResult,
   CreateProjectRequest,
@@ -15,6 +16,9 @@ import type {
   MonthChangeNotice,
   Mapping,
   MappingDraft,
+  MigrationApplyRequest,
+  MigrationPreview,
+  MigrationResult,
   NotificationsResult,
   Platform,
   RotationIssue,
@@ -57,6 +61,9 @@ export class IpcService {
   }
   listRotationIssues(): Promise<RotationIssue[]> {
     return this.api.listRotationIssues();
+  }
+  openMappingFolder(mappingId: string, side: 'local' | 'drive'): Promise<boolean> {
+    return this.api.openMappingFolder(mappingId, side);
   }
   fixRotation(ids: string[]): Promise<RotationIssue[]> {
     return this.api.fixRotation(ids);
@@ -113,6 +120,9 @@ export class IpcService {
   deleteClient(name: string, mappingIds: string[]): Promise<Client[]> {
     return this.api.deleteClient(name, mappingIds);
   }
+  mergeClients(source: string, target: string, deleteMappingIds: string[]): Promise<Client[]> {
+    return this.api.mergeClients(source, target, deleteMappingIds);
+  }
   deleteClientProject(name: string, project: string): Promise<Client[]> {
     return this.api.deleteClientProject(name, project);
   }
@@ -151,6 +161,15 @@ export class IpcService {
   }
   setCreatorBasePath(basePath: string): Promise<void> {
     return this.api.setCreatorBasePath(basePath);
+  }
+  exportConfig(): Promise<ConfigExportResult> {
+    return this.api.exportConfig();
+  }
+  pickConfigImport(): Promise<MigrationPreview | null> {
+    return this.api.pickConfigImport();
+  }
+  applyConfigImport(req: MigrationApplyRequest): Promise<MigrationResult> {
+    return this.api.applyConfigImport(req);
   }
   onSyncProgress(cb: (p: SyncProgress) => void): () => void {
     return this.api.onSyncProgress(cb);

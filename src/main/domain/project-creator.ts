@@ -170,10 +170,14 @@ export class ProjectCreator {
 
     fs.mkdirSync(projectPath, { recursive: true });
 
-    const subfolders =
-      req.subfolders && req.subfolders.length > 0
-        ? req.subfolders
-        : [...DEFAULT_SUBFOLDERS];
+    // «Solo PSD»: el PSD queda en la raíz del proyecto, sin subcarpetas ni log.
+    if (req.psdOnly) {
+      const psdPaths = this.copyPsdTemplates(req, folderName, projectPath, '', log);
+      return { status: 'created', folderName, projectPath, psdPaths, log };
+    }
+
+    // Sin `subfolders` se crean todas; una lista vacía significa «ninguna».
+    const subfolders = req.subfolders ?? [...DEFAULT_SUBFOLDERS];
     for (const sub of subfolders) {
       fs.mkdirSync(path.join(projectPath, sub), { recursive: true });
       log.push(`CREATED: ${sub}`);
@@ -182,38 +186,26 @@ export class ProjectCreator {
     // Si solo se genera un tipo de archivo, va directo a 04_workfiles/ (sin
     // subcarpeta psd|ai); con varios tipos, cada uno en su subcarpeta.
     const singleType = req.fileTypes.length === 1;
-    const workfiles = path.join(projectPath, '04_workfiles');
+    // Si no se eligió ninguna subcarpeta de 04_workfiles, los archivos van a
+    // la raíz del proyecto (no se crea la carpeta).
+    const useWorkfiles = subfolders.some((s) => s.startsWith('04_workfiles'));
+    const workfiles = useWorkfiles
+      ? path.join(projectPath, '04_workfiles')
+      : projectPath;
 
     // Copia de plantillas PSD por plataforma seleccionada.
+    let psdPaths: string[] = [];
     if (req.fileTypes.includes('psd')) {
-      const psdDir = singleType ? workfiles : path.join(workfiles, 'psd');
-      fs.mkdirSync(psdDir, { recursive: true });
-      const rel = singleType ? '04_workfiles/' : '04_workfiles/psd/';
-      const selections = this.psdSelections(req);
-      for (const selection of selections) {
-        const templateName = selection.format
-          ? psdTemplateForFormat(selection)
-          : psdTemplateFor(selection.platform);
-        const src = path.join(this.templatesDir, templateName);
-        const outputName = psdOutputName(
-          folderName,
-          selection.format || selection.platform,
-          selections.length,
-        );
-        if (fs.existsSync(src)) {
-          fs.copyFileSync(src, path.join(psdDir, outputName));
-          log.push(`COPIED: ${templateName} -> ${rel}${outputName}`);
-        } else {
-          log.push(`MISSING TEMPLATE: ${templateName}`);
-        }
-      }
+      const psdDir = singleType || !useWorkfiles ? workfiles : path.join(workfiles, 'psd');
+      const rel = !useWorkfiles ? '' : singleType ? '04_workfiles/' : '04_workfiles/psd/';
+      psdPaths = this.copyPsdTemplates(req, folderName, psdDir, rel, log);
     }
 
     // Copia de plantilla AI.
     if (req.fileTypes.includes('ai')) {
-      const aiDir = singleType ? workfiles : path.join(workfiles, 'ai');
+      const aiDir = singleType || !useWorkfiles ? workfiles : path.join(workfiles, 'ai');
       fs.mkdirSync(aiDir, { recursive: true });
-      const rel = singleType ? '04_workfiles/' : '04_workfiles/ai/';
+      const rel = !useWorkfiles ? '' : singleType ? '04_workfiles/' : '04_workfiles/ai/';
       const src = path.join(this.templatesDir, 'base.ai');
       if (fs.existsSync(src)) {
         const outputName = `${folderName}.ai`;
@@ -242,7 +234,40 @@ export class ProjectCreator {
       'utf-8',
     );
 
-    return { status: 'created', folderName, projectPath, log };
+    return { status: 'created', folderName, projectPath, psdPaths, log };
+  }
+
+  /** Copia los PSD base seleccionados a `psdDir`; devuelve las rutas creadas. */
+  private copyPsdTemplates(
+    req: CreateProjectRequest,
+    folderName: string,
+    psdDir: string,
+    rel: string,
+    log: string[],
+  ): string[] {
+    fs.mkdirSync(psdDir, { recursive: true });
+    const created: string[] = [];
+    const selections = this.psdSelections(req);
+    for (const selection of selections) {
+      const templateName = selection.format
+        ? psdTemplateForFormat(selection)
+        : psdTemplateFor(selection.platform);
+      const src = path.join(this.templatesDir, templateName);
+      const outputName = psdOutputName(
+        folderName,
+        selection.format || selection.platform,
+        selections.length,
+      );
+      if (fs.existsSync(src)) {
+        const dest = path.join(psdDir, outputName);
+        fs.copyFileSync(src, dest);
+        created.push(dest);
+        log.push(`COPIED: ${templateName} -> ${rel}${outputName}`);
+      } else {
+        log.push(`MISSING TEMPLATE: ${templateName}`);
+      }
+    }
+    return created;
   }
 
   private psdSelections(req: CreateProjectRequest): PlatformFormatSelection[] {

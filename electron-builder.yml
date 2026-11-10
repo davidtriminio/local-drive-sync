@@ -19,8 +19,12 @@ asarUnpack:
 extraResources:
   - from: resources/creator
     to: creator
+  # Icono de la app (ventana y bandeja) accesible en tiempo de ejecución.
+  - from: build/icon.png
+    to: icon.png
 
 win:
+  icon: build/icon.ico
   target:
     - nsis
   artifactName: ${productName}-${version}-setup.${ext}
@@ -31,3 +35,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico

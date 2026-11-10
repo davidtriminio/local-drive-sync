@@ -20,3 +20,10 @@ export function creatorAssetsDir(): string {
 export function platformsFile(): string {
   return path.join(creatorAssetsDir(), 'platforms.json');
 }
+
+/** Icono de la app (ventana y bandeja): `build/icon.png` en dev, `<resources>/icon.png` empaquetado. */
+export function appIconPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'build', 'icon.png');
+}

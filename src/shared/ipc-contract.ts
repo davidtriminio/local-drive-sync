@@ -16,6 +16,7 @@ export const IpcChannels = {
   mappingsDelete: 'mappings:delete',
   mappingsRotationIssues: 'mappings:rotationIssues',
   mappingsFixRotation: 'mappings:fixRotation',
+  mappingsOpenFolder: 'mappings:openFolder',
   mappingsSetRotationSide: 'mappings:setRotationSide',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
@@ -38,6 +39,7 @@ export const IpcChannels = {
   clientsSetIcon: 'clients:setIcon',
   clientsSetColor: 'clients:setColor',
   clientsDelete: 'clients:delete',
+  clientsMerge: 'clients:merge',
   clientsDeleteProject: 'clients:deleteProject',
   eventsList: 'events:list',
   eventsSave: 'events:save',
@@ -46,6 +48,9 @@ export const IpcChannels = {
   notificationsCheck: 'notifications:check',
   notificationsMarkRead: 'notifications:markRead',
   notificationsMarkAllRead: 'notifications:markAllRead',
+  configExport: 'config:export',
+  configImportPick: 'config:importPick',
+  configImportApply: 'config:importApply',
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -316,6 +321,8 @@ export interface Client {
   /** Color de acento (hex) del badge del cliente. */
   color: string;
   projects: ClientProject[];
+  /** Nombres de clientes fusionados en este: se reconocen como el mismo. */
+  aliases?: string[];
 }
 
 /** Última configuración usada en el creador; se restaura al abrirlo. */
@@ -325,6 +332,8 @@ export interface CreatorPrefs {
   platforms: string[];
   formats: string[];
   subfolders: string[];
+  /** Modo «solo PSD»: el PSD queda en la raíz del proyecto, sin subcarpetas. */
+  psdOnly?: boolean;
   lastClient: string;
 }
 
@@ -348,6 +357,8 @@ export interface CreateProjectRequest {
   formats?: PlatformFormatSelection[];
   /** Subcarpetas a crear; si se omite, se crean todas. */
   subfolders?: string[];
+  /** Solo PSD: copia el PSD a la raíz del proyecto, sin subcarpetas ni log. */
+  psdOnly?: boolean;
   /** Fecha (AAAA-MM-DD) para el nombre de carpeta; por defecto hoy. */
   date?: string;
   /** Icono a asignar al cliente (si es nuevo o se quiere actualizar). */
@@ -365,6 +376,8 @@ export interface CreateProjectResult {
   folderName?: string;
   /** Ruta absoluta creada (solo si status === 'created'). */
   projectPath?: string;
+  /** Rutas absolutas de los PSD copiados (para abrirlos directamente). */
+  psdPaths?: string[];
   /** Entradas del log de creación (solo si status === 'created'). */
   log?: string[];
   /** Carpeta previa del mismo mes que dispara el aviso (status === 'duplicate'). */
@@ -458,6 +471,7 @@ export interface CreateBatchRequest {
   platforms: string[];
   formats?: PlatformFormatSelection[];
   subfolders?: string[];
+  psdOnly?: boolean;
   /** Evento asociado (solo informativo/preselección). */
   eventId?: string;
   /** Fecha (AAAA-MM-DD) del evento para el nombre de carpeta; por defecto hoy. */
@@ -474,6 +488,8 @@ export interface BatchClientResult {
   folderName?: string;
   /** Ruta absoluta creada (solo si status === 'created'). */
   projectPath?: string;
+  /** Rutas absolutas de los PSD copiados. */
+  psdPaths?: string[];
   existingFolder?: string;
   error?: string;
 }
@@ -481,6 +497,70 @@ export interface BatchClientResult {
 /** Resultado global de una creación en lote. */
 export interface CreateBatchResult {
   results: BatchClientResult[];
+}
+
+// --- Migración de configuración entre PCs ---
+
+/** Resultado de exportar la configuración a un archivo. */
+export interface ConfigExportResult {
+  ok: boolean;
+  /** true si el usuario canceló el diálogo de guardado. */
+  canceled?: boolean;
+  path?: string;
+  message?: string;
+}
+
+/**
+ * Raíz de rutas detectada en el archivo importado (p. ej. `V:\graphic_design`
+ * o `G:\Mi unidad\Clientes`). Todas las rutas que cuelgan de ella se reescriben
+ * con la carpeta elegida para la PC nueva.
+ */
+export interface MigrationRoot {
+  /** Ruta original (de la PC antigua). */
+  original: string;
+  /** 'drive' si la usan patrones de Drive; 'local' para el resto. */
+  kind: 'local' | 'drive';
+  /** Cuántas rutas de la configuración cuelgan de esta raíz. */
+  usedBy: number;
+  /** Reemplazo propuesto (p. ej. con la carpeta de usuario de esta PC). */
+  suggested: string;
+}
+
+/** Contenido del archivo elegido para importar, listo para remapear rutas. */
+export interface MigrationPreview {
+  fileName: string;
+  exportedAt: string;
+  counts: {
+    mappings: number;
+    clients: number;
+    events: number;
+  };
+  roots: MigrationRoot[];
+  /** Carpeta de usuario de esta PC (referencia para el reemplazo). */
+  homeDir: string;
+}
+
+export interface MigrationRootChoice {
+  original: string;
+  /** Carpeta nueva; vacío para dejar la ruta original sin cambios. */
+  replacement: string;
+}
+
+export interface MigrationApplyRequest {
+  roots: MigrationRootChoice[];
+  createLocalFolders: boolean;
+  createDriveFolders: boolean;
+  createExportFolder: boolean;
+}
+
+export interface MigrationResult {
+  mappings: number;
+  clients: number;
+  events: number;
+  /** Carpetas creadas (o ya existentes) del esqueleto. */
+  created: string[];
+  /** Carpetas omitidas o con error, con el motivo. */
+  warnings: string[];
 }
 
 /** Subcarpetas por defecto del árbol de proyecto. */
@@ -512,6 +592,8 @@ export interface Api {
   listRotationIssues(): Promise<RotationIssue[]>;
   /** Aplica las rutas con `{mes}` propuestas; devuelve lo que sigue sin rotar. */
   fixRotation(mappingIds: string[]): Promise<RotationIssue[]>;
+  /** Abre en el explorador la carpeta local o de Drive del mes actual; false si no existe. */
+  openMappingFolder(mappingId: string, side: 'local' | 'drive'): Promise<boolean>;
   /**
    * Guía manual: toma la carpeta del mes elegida (p. ej. `...\Octubre-2026`) y
    * la guarda como ruta con `{mes}` en el lado indicado del mapeo.
@@ -545,6 +627,8 @@ export interface Api {
    * conservarlos. No toca carpetas del disco. Devuelve la lista actualizada.
    */
   deleteClient(name: string, mappingIds: string[]): Promise<Client[]>;
+  /** Fusiona `source` dentro de `target` (proyectos, eventos y alias) y borra los mapeos indicados. */
+  mergeClients(source: string, target: string, deleteMappingIds: string[]): Promise<Client[]>;
   /** Elimina un proyecto del historial de un cliente; devuelve la lista. */
   deleteClientProject(name: string, project: string): Promise<Client[]>;
   /** Catálogo de plataformas y sus formatos. */
@@ -572,6 +656,12 @@ export interface Api {
   getCreatorPrefs(): Promise<CreatorPrefs>;
   /** Guarda al instante la carpeta base (admite el token {mes}). */
   setCreatorBasePath(basePath: string): Promise<void>;
+  /** Exporta mapeos, clientes, eventos, ajustes y preferencias a un archivo. */
+  exportConfig(): Promise<ConfigExportResult>;
+  /** Elige un archivo exportado y devuelve las raíces de ruta a remapear; null si se cancela. */
+  pickConfigImport(): Promise<MigrationPreview | null>;
+  /** Importa el archivo elegido reescribiendo rutas y creando el esqueleto de carpetas. */
+  applyConfigImport(req: MigrationApplyRequest): Promise<MigrationResult>;
   /** Suscripción a progreso; devuelve función para desuscribir. */
   onSyncProgress(cb: (p: SyncProgress) => void): () => void;
   onSyncDone(cb: (s: RunSummary) => void): () => void;
