@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* --- Interacción global: Tailwind v4 deja los botones con cursor por defecto --- */
+
+button:not(:disabled),
+[role="button"],
+select:not(:disabled),
+summary,
+label[for],
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+/* Anillo de foco visible solo al navegar con teclado. */
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.7);
+  outline-offset: 2px;
+}
+
 /* --- Componentes de UI reutilizables (tema oscuro) --- */
 
 .page-title {
@@ -24,10 +49,16 @@
     rgb(13 148 136)
   );
   box-shadow: 0 10px 25px -10px rgba(16, 185, 129, 0.6);
-  transition: filter 0.15s;
+  transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
 }
-.btn-primary:hover {
-  filter: brightness(1.08);
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px -10px rgba(16, 185, 129, 0.75);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  filter: brightness(0.95);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -47,10 +78,18 @@
   font-size: 0.8125rem;
   color: rgb(203 213 225);
   background: rgba(255, 255, 255, 0.06);
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.12);
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgb(241 245 249);
+  transform: translateY(-1px);
+}
+.btn-ghost:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+.btn-ghost:disabled {
+  opacity: 0.5;
 }
 
 .btn-warn {
@@ -60,9 +99,14 @@
   font-weight: 600;
   color: rgb(2 6 23);
   background: rgb(251 191 36);
+  transition: background 0.15s, transform 0.15s;
 }
-.btn-warn:hover {
+.btn-warn:hover:not(:disabled) {
   background: rgb(252 211 77);
+  transform: translateY(-1px);
+}
+.btn-warn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
 }
 
 .icon-btn {
@@ -73,11 +117,18 @@
   width: 2rem;
   border-radius: 0.75rem;
   color: rgb(148 163 184);
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
 }
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgb(226 232 240);
+.icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgb(241 245 249);
+  transform: scale(1.1);
+}
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.icon-btn:disabled {
+  opacity: 0.5;
 }
 
 /* Tarjeta y campo de formulario estándar. */
@@ -96,8 +147,22 @@
   font-size: 0.875rem;
   color: rgb(226 232 240);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
+}
+.field:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .field:focus {
   border-color: rgba(16, 185, 129, 0.7);
+}
+
+/* Respeta a quien prefiere menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .btn-ghost,
+  .btn-warn,
+  .icon-btn {
+    transition: none;
+    transform: none !important;
+  }
 }
