@@ -120,7 +120,11 @@ export class SyncService {
     const driveFiles = drive.exists ? scanner.scan(drive.resolved) : [];
     const index = this.repo.getIndex(mappingId, monthKey);
 
-    const files = this.comparator.compare(localFiles, driveFiles, index);
+    const all = this.comparator.compare(localFiles, driveFiles, index);
+    // Lo que el usuario marcó como «no sincronizar» no cuenta ni se planifica.
+    const ignoredSet = new Set(this.repo.getIgnored(mappingId, monthKey));
+    const files = all.filter((f) => !ignoredSet.has(f.relPath));
+    const ignoredFiles = all.filter((f) => ignoredSet.has(f.relPath));
     const counts = {
       new: files.filter((f) => f.status === 'NEW').length,
       modified: files.filter((f) => f.status === 'MODIFIED').length,
@@ -137,6 +141,7 @@ export class SyncService {
       localExists: local.exists,
       driveExists: drive.exists,
       files,
+      ignoredFiles,
       counts,
     };
   }

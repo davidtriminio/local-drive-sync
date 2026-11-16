@@ -9,7 +9,9 @@ import type {
   CreateProjectRequest,
   CreateProjectResult,
   CreatorPrefs,
+  AssignExportResult,
   DiffResult,
+  UnassignedResult,
   EventDraft,
   EventItem,
   ExportActivity,
@@ -179,6 +181,20 @@ export class IpcService {
   }
   onFullScreenChange(cb: (isFullScreen: boolean) => void): () => void {
     return this.api.onFullScreenChange(cb);
+  }
+  setIgnoredFiles(
+    mappingId: string,
+    monthKey: string,
+    relPaths: string[],
+    ignored: boolean,
+  ): Promise<DiffResult> {
+    return this.api.setIgnoredFiles(mappingId, monthKey, relPaths, ignored);
+  }
+  listUnassignedExports(): Promise<UnassignedResult> {
+    return this.api.listUnassignedExports();
+  }
+  assignExport(fileName: string, mappingId: string): Promise<AssignExportResult> {
+    return this.api.assignExport(fileName, mappingId);
   }
   onExportActivity(cb: (activity: ExportActivity) => void): () => void {
     return this.api.onExportActivity(cb);

@@ -17,6 +17,11 @@ Sin API de Google, sin OAuth y sin cuotas: toda operación es una copia local �
   archivo por archivo antes de ejecutar.
 - **Mapeos con token `{mes}`** que rotan automáticamente cada mes, tolerantes a variaciones
   del nombre de la carpeta (`Septiembre`, `09`, `Sep-2026`…).
+- **Archivos a ignorar:** marca archivos como «no sincronizar» para que no vuelvan a aparecer y
+  restáuralos cuando quieras.
+- **Export sin asignar:** sección para ver los archivos de la carpeta de export que ningún mapeo
+  reconoce (por ejemplo, sin prefijo) y moverlos al mapeo correcto.
+- **Acceso rápido** a la carpeta local y a la de Drive desde la pantalla de sincronización.
 - **Respaldo a papelera** antes de sobrescribir y restauración desde la app.
 - **Clientes y notificaciones** de sincronización.
 - **Creador de proyectos gráficos** desde plantillas PSD, con eventos y feriados en lote.

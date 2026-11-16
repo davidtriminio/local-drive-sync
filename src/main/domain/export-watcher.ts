@@ -1,6 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ExportActivity, Mapping } from '../../shared/ipc-contract';
+import type {
+  AssignExportResult,
+  ExportActivity,
+  Mapping,
+  UnassignedResult,
+} from '../../shared/ipc-contract';
 import type { Repository } from '../persistence/repository';
 import type { SyncService } from '../services/sync-service';
 import { matchKey } from './match-key';
@@ -90,6 +95,77 @@ export class ExportWatcher {
       this.timer = null;
     }
     this.pending.clear();
+  }
+
+  /**
+   * Archivos de la carpeta de export que ningún mapeo reconoce (típicamente
+   * sin prefijo de empresa). Funciona aunque la vigilancia esté apagada.
+   */
+  listUnassigned(): UnassignedResult {
+    const folder = this.repo.getSettings().exportWatchFolder.trim();
+    if (!folder) {
+      return { folder: '', files: [] };
+    }
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(folder, { withFileTypes: true });
+    } catch {
+      return { folder, files: [] };
+    }
+    const files: UnassignedResult['files'] = [];
+    for (const entry of entries) {
+      if (!entry.isFile() || this.matchMapping(entry.name)) {
+        continue;
+      }
+      try {
+        const st = fs.statSync(path.join(folder, entry.name));
+        files.push({
+          name: entry.name,
+          size: st.size,
+          mtimeMs: st.mtimeMs,
+          suggestion: this.suggestMapping(entry.name),
+        });
+      } catch {
+        /* desapareció entre readdir y stat */
+      }
+    }
+    return {
+      folder,
+      files: files.sort((a, b) => b.mtimeMs - a.mtimeMs),
+    };
+  }
+
+  /**
+   * Mueve un archivo de la carpeta de export a la carpeta local (mes actual) del
+   * mapeo elegido. Reemplaza el archivo si ya existe en destino.
+   */
+  assign(fileName: string, mappingId: string): AssignExportResult {
+    const folder = this.repo.getSettings().exportWatchFolder.trim();
+    const mapping = this.repo.getMapping(mappingId);
+    if (!folder) {
+      return { ok: false, message: 'No hay carpeta de export configurada.' };
+    }
+    if (!mapping) {
+      return { ok: false, message: 'El mapeo ya no existe.' };
+    }
+    // Solo nombres simples: nunca rutas que se salgan de la carpeta de export.
+    if (!fileName || path.basename(fileName) !== fileName) {
+      return { ok: false, message: 'Nombre de archivo no válido.' };
+    }
+    const src = path.join(folder, fileName);
+    if (!fs.existsSync(src)) {
+      return { ok: false, message: 'El archivo ya no está en la carpeta de export.' };
+    }
+    try {
+      const destDir = this.sync.resolveLocalDir(mapping, this.currentMonthKey());
+      fs.mkdirSync(destDir, { recursive: true });
+      const dest = path.join(destDir, fileName);
+      this.moveFile(src, dest);
+      this.pending.delete(fileName);
+      return { ok: true, message: `Movido a ${mapping.name}.`, dest };
+    } catch (err) {
+      return { ok: false, message: String(err) };
+    }
   }
 
   private schedule(): void {

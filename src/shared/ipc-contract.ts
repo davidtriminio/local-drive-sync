@@ -24,6 +24,9 @@ export const IpcChannels = {
   syncPreview: 'sync:preview',
   syncExecute: 'sync:execute',
   syncCancel: 'sync:cancel',
+  syncSetIgnored: 'sync:setIgnored',
+  exportListUnassigned: 'export:listUnassigned',
+  exportAssign: 'export:assign',
   syncProgress: 'sync:progress',
   syncDone: 'sync:done',
   historyList: 'history:list',
@@ -151,6 +154,8 @@ export interface DiffResult {
   localExists: boolean;
   driveExists: boolean;
   files: FileDiff[];
+  /** Archivos que el usuario marcó como «no sincronizar» este mes (no cuentan). */
+  ignoredFiles: FileDiff[];
   counts: DiffCounts;
 }
 
@@ -293,6 +298,28 @@ export interface ExportActivity {
   suggestion?: string;
   /** Marca de tiempo ISO. */
   at: string;
+}
+
+/** Archivo de la carpeta de export que ningún mapeo reconoce por su prefijo. */
+export interface UnassignedFile {
+  name: string;
+  size: number;
+  mtimeMs: number;
+  /** Mapeo parecido por si el prefijo tiene un error de escritura. */
+  suggestion?: string;
+}
+
+export interface UnassignedResult {
+  /** Carpeta de export configurada (vacía si no hay ninguna). */
+  folder: string;
+  files: UnassignedFile[];
+}
+
+export interface AssignExportResult {
+  ok: boolean;
+  message: string;
+  /** Ruta final del archivo movido (solo si `ok`). */
+  dest?: string;
 }
 
 // --- Creador de proyectos gráficos ---
@@ -609,6 +636,20 @@ export interface Api {
   previewSync(req: SyncPreviewRequest): Promise<SyncPlan>;
   executeSync(plan: SyncPlan): Promise<RunSummary>;
   cancelSync(runId: string): Promise<void>;
+  /**
+   * Marca (o desmarca) archivos del mes como «no sincronizar»; devuelve el
+   * análisis actualizado.
+   */
+  setIgnoredFiles(
+    mappingId: string,
+    monthKey: string,
+    relPaths: string[],
+    ignored: boolean,
+  ): Promise<DiffResult>;
+  /** Archivos de la carpeta de export que ningún mapeo reconoce. */
+  listUnassignedExports(): Promise<UnassignedResult>;
+  /** Mueve un archivo de export a la carpeta local (mes actual) de un mapeo. */
+  assignExport(fileName: string, mappingId: string): Promise<AssignExportResult>;
   listHistory(): Promise<RunSummary[]>;
   historyDetail(runId: string): Promise<RunDetail | null>;
   listTrash(): Promise<TrashEntry[]>;
