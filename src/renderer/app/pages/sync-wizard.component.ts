@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -18,7 +19,7 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
 @Component({
   selector: 'app-sync-wizard',
   standalone: true,
-  imports: [FormsModule, RouterLink, IconComponent],
+  imports: [FormsModule, RouterLink, IconComponent, NgTemplateOutlet],
   template: `
     <section class="mx-auto max-w-5xl p-8">
       <header class="mb-8 flex items-center justify-between">
@@ -73,6 +74,9 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               {{ busy() ? 'Analizando…' : 'Analizar diferencias' }}
             </button>
           </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <ng-container *ngTemplateOutlet="carpetasTpl" />
+          </div>
           <p class="mt-3 text-xs text-slate-500">
             La app usa el mes actual automáticamente. Sincronizar todo copia nuevos y actualiza modificados usando Local como fuente; Elegir archivos te deja marcar cuáles sí y cuáles no.
           </p>
@@ -111,6 +115,10 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               se creará al sincronizar.
             </p>
           }
+
+          <div class="flex flex-wrap gap-2 text-xs">
+            <ng-container *ngTemplateOutlet="carpetasTpl" />
+          </div>
 
           <div class="flex gap-2 text-xs">
             <button (click)="seleccionar('NEW', 'copy')" class="btn-ghost btn-sm">
@@ -154,6 +162,16 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
                       {{ fmt(f.localSize) }} → {{ fmt(f.driveSize) }}
                     </td>
                     <td class="px-3 py-2 text-right">
+                      @if (f.status === 'NEW' || f.status === 'MODIFIED') {
+                        <button
+                          (click)="ignorar([f.relPath])"
+                          [disabled]="busy()"
+                          class="btn-ghost btn-sm mr-1"
+                          title="No sincronizar este archivo"
+                        >
+                          <app-icon name="x" [size]="12" /> Ignorar
+                        </button>
+                      }
                       @if (f.status === 'MODIFIED') {
                         <select
                           [ngModel]="decisionOf(f.relPath)"
@@ -171,6 +189,8 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               </tbody>
             </table>
           </div>
+
+          <ng-container *ngTemplateOutlet="ignoradosTpl" />
 
           <div class="flex gap-3">
             <button
@@ -274,6 +294,56 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
       }
     </section>
 
+    <!-- Botones para abrir las carpetas del mapeo (mes actual) -->
+    <ng-template #carpetasTpl>
+      <button (click)="abrirCarpeta('local')" class="btn-ghost btn-sm">
+        <app-icon name="folder" [size]="14" /> Abrir carpeta local
+      </button>
+      <button (click)="abrirCarpeta('drive')" class="btn-ghost btn-sm">
+        <app-icon name="folder" [size]="14" /> Abrir carpeta de Drive
+      </button>
+    </ng-template>
+
+    <!-- Archivos marcados como «no sincronizar»: se pueden restaurar -->
+    <ng-template #ignoradosTpl>
+      @if (ignorados().length > 0) {
+        <div class="rounded-xl border border-white/5 bg-slate-800/30 p-3">
+          <button
+            (click)="mostrarIgnorados.set(!mostrarIgnorados())"
+            class="flex w-full items-center justify-between text-xs text-slate-300"
+          >
+            <span>Ignorados este mes ({{ ignorados().length }})</span>
+            <span class="text-slate-500">{{ mostrarIgnorados() ? 'Ocultar' : 'Ver' }}</span>
+          </button>
+          @if (mostrarIgnorados()) {
+            <div class="mt-2 flex justify-end">
+              <button
+                (click)="restaurar(todosIgnorados())"
+                [disabled]="busy()"
+                class="btn-ghost btn-sm"
+              >
+                Restaurar todos
+              </button>
+            </div>
+            <ul class="mt-1 max-h-40 overflow-y-auto">
+              @for (f of ignorados(); track f.relPath) {
+                <li class="flex items-center justify-between gap-2 border-b border-slate-800/60 py-1.5">
+                  <span class="break-all font-mono text-xs text-slate-400">{{ f.relPath }}</span>
+                  <button
+                    (click)="restaurar([f.relPath])"
+                    [disabled]="busy()"
+                    class="btn-ghost btn-sm shrink-0"
+                  >
+                    <app-icon name="refresh" [size]="12" /> Restaurar
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </ng-template>
+
     <!-- Modal: elegir qué archivos sincronizar -->
     @if (showPicker()) {
       <div
@@ -310,6 +380,14 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               <button (click)="marcarVisibles(false)" class="btn-ghost btn-sm">
                 Desmarcar {{ filtro() ? 'visibles' : 'todos' }}
               </button>
+              <button
+                (click)="ignorarDesmarcados()"
+                [disabled]="busy() || desmarcados().length === 0"
+                class="btn-ghost btn-sm"
+                title="Los desmarcados dejan de aparecer hasta que los restaures"
+              >
+                Ignorar desmarcados ({{ desmarcados().length }})
+              </button>
             </div>
 
             <div class="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/5">
@@ -340,6 +418,16 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
                       <td class="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-500">
                         {{ fmt(f.localSize) }}
                       </td>
+                      <td class="px-2 py-2 text-right">
+                        <button
+                          (click)="$event.stopPropagation(); ignorar([f.relPath])"
+                          [disabled]="busy()"
+                          class="btn-ghost btn-sm"
+                          title="No sincronizar este archivo (no volverá a aparecer)"
+                        >
+                          <app-icon name="x" [size]="12" /> Ignorar
+                        </button>
+                      </td>
                     </tr>
                   } @empty {
                     <tr>
@@ -352,6 +440,10 @@ type WizardStep = 'month' | 'diff' | 'preview' | 'run' | 'done';
               </table>
             </div>
           }
+
+          <div class="mt-3">
+            <ng-container *ngTemplateOutlet="ignoradosTpl" />
+          </div>
 
           <div class="mt-4 flex items-center justify-between gap-3">
             <span class="text-xs text-slate-400">
@@ -404,6 +496,14 @@ export class SyncWizardComponent implements OnDestroy {
   });
   protected readonly seleccionados = computed(
     () => this.pickable().filter((f) => this.decisions()[f.relPath] === 'copy').length,
+  );
+
+  protected readonly mostrarIgnorados = signal(false);
+  /** Archivos marcados como «no sincronizar» en el mes. */
+  protected readonly ignorados = computed(() => this.diff()?.ignoredFiles ?? []);
+  /** Archivos accionables que el usuario dejó desmarcados en el selector. */
+  protected readonly desmarcados = computed(() =>
+    this.pickable().filter((f) => this.decisions()[f.relPath] !== 'copy'),
   );
 
   private mappingId = '';
@@ -535,6 +635,70 @@ export class SyncWizardComponent implements OnDestroy {
       await this.ejecutar(false);
     } catch (e) {
       this.error.set(`No se pudo sincronizar: ${String(e)}`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Abre en el explorador la carpeta local o de Drive del mes actual. */
+  protected async abrirCarpeta(side: 'local' | 'drive'): Promise<void> {
+    this.error.set('');
+    try {
+      const ok = await this.ipc.openMappingFolder(this.mappingId, side);
+      if (!ok) {
+        this.error.set(
+          `La carpeta ${side === 'local' ? 'local' : 'de Drive'} de este mes aún no existe.`,
+        );
+      }
+    } catch (e) {
+      this.error.set(`No se pudo abrir la carpeta: ${String(e)}`);
+    }
+  }
+
+  protected todosIgnorados(): string[] {
+    return this.ignorados().map((f) => f.relPath);
+  }
+
+  protected ignorarDesmarcados(): void {
+    void this.ignorar(this.desmarcados().map((f) => f.relPath));
+  }
+
+  /** Deja de ofrecer estos archivos; no vuelven a salir hasta restaurarlos. */
+  protected async ignorar(relPaths: string[]): Promise<void> {
+    await this.cambiarIgnorados(relPaths, true);
+  }
+
+  protected async restaurar(relPaths: string[]): Promise<void> {
+    await this.cambiarIgnorados(relPaths, false);
+  }
+
+  private async cambiarIgnorados(relPaths: string[], ignored: boolean): Promise<void> {
+    if (this.busy() || relPaths.length === 0) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const result = await this.ipc.setIgnoredFiles(
+        this.mappingId,
+        this.monthKey,
+        relPaths,
+        ignored,
+      );
+      this.diff.set(result);
+      this.decisions.update((cur) => {
+        const next = { ...cur };
+        for (const rel of relPaths) {
+          if (ignored) {
+            delete next[rel];
+          } else {
+            next[rel] = 'copy'; // restaurado: vuelve marcado para copiar
+          }
+        }
+        return next;
+      });
+    } catch (e) {
+      this.error.set(`No se pudo actualizar la lista de ignorados: ${String(e)}`);
     } finally {
       this.busy.set(false);
     }

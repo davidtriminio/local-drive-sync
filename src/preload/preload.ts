@@ -52,6 +52,23 @@ const api: Api = {
     ipcRenderer.invoke(IpcChannels.syncExecute, plan),
   cancelSync: (runId: string) =>
     ipcRenderer.invoke(IpcChannels.syncCancel, runId),
+  setIgnoredFiles: (
+    mappingId: string,
+    monthKey: string,
+    relPaths: string[],
+    ignored: boolean,
+  ) =>
+    ipcRenderer.invoke(
+      IpcChannels.syncSetIgnored,
+      mappingId,
+      monthKey,
+      relPaths,
+      ignored,
+    ),
+  listUnassignedExports: () =>
+    ipcRenderer.invoke(IpcChannels.exportListUnassigned),
+  assignExport: (fileName: string, mappingId: string) =>
+    ipcRenderer.invoke(IpcChannels.exportAssign, fileName, mappingId),
   listHistory: () => ipcRenderer.invoke(IpcChannels.historyList),
   historyDetail: (runId: string) =>
     ipcRenderer.invoke(IpcChannels.historyDetail, runId),

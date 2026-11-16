@@ -50,6 +50,11 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'unassigned',
+    loadComponent: () =>
+      import('./pages/unassigned.component').then((m) => m.UnassignedComponent),
+  },
+  {
     path: 'history',
     loadComponent: () =>
       import('./pages/history.component').then((m) => m.HistoryComponent),

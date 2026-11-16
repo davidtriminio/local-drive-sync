@@ -179,6 +179,7 @@ export class AppComponent implements OnDestroy {
       icon: 'bell',
       exact: false,
     },
+    { path: 'unassigned', label: 'Sin asignar', icon: 'file', exact: false },
     { path: 'history', label: 'Historial', icon: 'clock', exact: false },
     { path: 'trash', label: 'Papelera', icon: 'trash', exact: false },
     { path: 'settings', label: 'Ajustes', icon: 'settings', exact: false },

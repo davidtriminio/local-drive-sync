@@ -248,6 +248,30 @@ export function registerIpcHandlers(ctx: IpcContext): IpcHandles {
     running.get(runId)?.abort();
   });
 
+  ipcMain.handle(
+    IpcChannels.syncSetIgnored,
+    (
+      _e,
+      mappingId: string,
+      monthKey: string,
+      relPaths: string[],
+      ignored: boolean,
+    ) => {
+      repo.setIgnored(mappingId, monthKey, relPaths ?? [], !!ignored);
+      return syncService.scanDiff(mappingId, monthKey);
+    },
+  );
+
+  ipcMain.handle(IpcChannels.exportListUnassigned, () =>
+    exportWatcher.listUnassigned(),
+  );
+
+  ipcMain.handle(
+    IpcChannels.exportAssign,
+    (_e, fileName: string, mappingId: string) =>
+      exportWatcher.assign(fileName, mappingId),
+  );
+
   ipcMain.handle(IpcChannels.historyList, () => repo.listRuns());
   ipcMain.handle(IpcChannels.historyDetail, (_e, runId: string) =>
     repo.getRun(runId),

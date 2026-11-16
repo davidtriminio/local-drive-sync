@@ -29,6 +29,8 @@ interface Database {
   notifAcks: Record<string, string>;
   /** index["<mappingId>::<monthKey>"]["<relPath>"] = IndexEntry */
   index: Record<string, Record<string, IndexEntry>>;
+  /** Archivos «no sincronizar»: ignored["<mappingId>::<monthKey>"] = relPaths. */
+  ignored: Record<string, string[]>;
   /** Último mes (AAAA-MM) que la app vio; detecta el cambio de mes. */
   lastMonthSeen: string;
 }
@@ -71,6 +73,7 @@ function emptyDb(): Database {
     creatorPrefs: { ...DEFAULT_CREATOR_PREFS },
     notifAcks: {},
     index: {},
+    ignored: {},
     lastMonthSeen: '',
   };
 }
@@ -188,6 +191,11 @@ export class Repository {
       }
     }
     delete this.db.notifAcks[id];
+    for (const key of Object.keys(this.db.ignored)) {
+      if (key.startsWith(`${id}::`)) {
+        delete this.db.ignored[key];
+      }
+    }
     this.persist();
   }
 
@@ -214,6 +222,35 @@ export class Repository {
   ): void {
     const key = `${mappingId}::${monthKey}`;
     this.db.index[key] = { ...this.getIndex(mappingId, monthKey), ...entries };
+    this.persist();
+  }
+
+  // --- Archivos ignorados («no sincronizar») ---
+  getIgnored(mappingId: string, monthKey: string): string[] {
+    return [...(this.db.ignored[`${mappingId}::${monthKey}`] ?? [])];
+  }
+
+  /** Marca o desmarca rutas relativas como ignoradas para un mapeo y mes. */
+  setIgnored(
+    mappingId: string,
+    monthKey: string,
+    relPaths: string[],
+    ignored: boolean,
+  ): void {
+    const key = `${mappingId}::${monthKey}`;
+    const current = new Set(this.db.ignored[key] ?? []);
+    for (const rel of relPaths) {
+      if (ignored) {
+        current.add(rel);
+      } else {
+        current.delete(rel);
+      }
+    }
+    if (current.size === 0) {
+      delete this.db.ignored[key];
+    } else {
+      this.db.ignored[key] = [...current];
+    }
     this.persist();
   }
 
