@@ -1,8 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NotificationsStore } from '../services/notifications.store';
 import { IconComponent } from '../shared/icon.component';
 import { chipStyle } from '../shared/colors';
+import { IpcService } from '../services/ipc.service';
 import { SyncAllService } from '../services/sync-all.service';
 import type { SyncNotification } from '../../../shared/ipc-contract';
 
@@ -56,6 +57,11 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
       @if (syncAll.result()) {
         <p class="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-200">
           {{ syncAll.result() }}
+        </p>
+      }
+      @if (folderMessage()) {
+        <p class="mb-4 rounded-xl border border-white/10 bg-slate-900/40 px-4 py-2.5 text-sm text-slate-300">
+          {{ folderMessage() }}
         </p>
       }
 
@@ -144,6 +150,20 @@ import type { SyncNotification } from '../../../shared/ipc-contract';
                 >
                   <app-icon name="check" [size]="15" /> Sincronizar parcial
                 </button>
+                <button
+                  (click)="abrirCarpeta(n, 'local')"
+                  class="icon-btn"
+                  title="Abrir carpeta local"
+                >
+                  <app-icon name="folderOpen" [size]="16" />
+                </button>
+                <button
+                  (click)="abrirCarpeta(n, 'drive')"
+                  class="icon-btn"
+                  title="Abrir carpeta de Drive"
+                >
+                  <app-icon name="layers" [size]="16" />
+                </button>
               </div>
             </li>
           }
@@ -157,9 +177,21 @@ export class NotificationsComponent {
   private readonly router = inject(Router);
   protected readonly chip = chipStyle;
   protected readonly syncAll = inject(SyncAllService);
+  private readonly ipc = inject(IpcService);
+  protected readonly folderMessage = signal('');
 
   constructor() {
     void this.store.refresh();
+  }
+
+  /** Abre la carpeta del mes actual del mapeo (local o Drive) en el explorador. */
+  protected async abrirCarpeta(n: SyncNotification, side: 'local' | 'drive'): Promise<void> {
+    const ok = await this.ipc.openMappingFolder(n.mappingId, side);
+    this.folderMessage.set(
+      ok
+        ? ''
+        : `La carpeta ${side === 'local' ? 'local' : 'de Drive'} de «${n.mappingName}» no existe todavía este mes.`,
+    );
   }
 
   /** Cantidad de pendientes que no caben en la muestra. */
